@@ -49,7 +49,7 @@ const entries = ['91', '335628', 1228616];
 downloader.addMultipleEntries(entries);
 
 downloader.downloadSingle(); // First file will be downloaded.
-downloader.downloadSignle(); // Second file will be downloaded.
+downloader.downloadSingle(); // Second file will be downloaded.
 downloader.downloadAll();    // Rest of the files will be downloaded.
 ```
 
