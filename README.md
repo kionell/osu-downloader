@@ -1,7 +1,7 @@
 # osu-downloader
-[![CodeFactor](https://img.shields.io/codefactor/grade/github/kionell/osu-parsers)](https://www.codefactor.io/repository/github/kionell/osu-downloader)
-[![License](https://img.shields.io/github/license/kionell/osu-parsers)](https://github.com/kionell/osu-downloader/blob/master/LICENSE)
-[![Package](https://img.shields.io/npm/v/osu-parsers)](https://www.npmjs.com/package/osu-downloader)
+[![CodeFactor](https://img.shields.io/codefactor/grade/github/kionell/osu-downloader)](https://www.codefactor.io/repository/github/kionell/osu-downloader)
+[![License](https://img.shields.io/github/license/kionell/osu-downloader)](https://github.com/kionell/osu-downloader/blob/master/LICENSE)
+[![Package](https://img.shields.io/npm/v/osu-downloader)](https://www.npmjs.com/package/osu-downloader)
 
 
 This is a simple tool for downloading osu! beatmaps and beatmapsets.
