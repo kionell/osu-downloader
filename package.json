@@ -42,6 +42,6 @@
   },
   "dependencies": {
     "axios": "^0.24.0",
-    "limiter": "^2.0.1"
+    "limiter": "2.0.1"
   }
 }
