@@ -196,6 +196,10 @@ export class BeatmapDownloader {
           url: link,
           method: 'GET',
           responseType: 'stream',
+          headers: {
+            'Accept': 'application/octet-stream',
+            'Content-Type': 'application/octet-stream',
+          },
         });
 
         const message = response.data as IncomingMessage;
