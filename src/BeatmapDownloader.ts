@@ -38,12 +38,13 @@ export class BeatmapDownloader {
   /**
    * A rate limiter to prevent big amount of requests.
    */
-  protected _limiter: limiter.RateLimiter;
+  protected _limiter: limiter.RateLimiter | null = null;
 
   /**
    * How many beatmaps can be downloaded in one second.
+   * (0 - synchronous downloading).
    */
-  protected _beatmapsPerSecond = 1;
+  protected _beatmapsPerSecond = 0;
 
   /**
    * The number of the current downloading file.
@@ -57,7 +58,8 @@ export class BeatmapDownloader {
 
   /**
    * @param rootPath A path for saving beatmaps.
-   * @param beatmapsPerSecond How many beatmaps per second will be downloaded.
+   * @param beatmapsPerSecond How many beatmaps per second will be downloaded. 
+   * (0 - synchronous downloading).
    * @constructor
    */
   constructor(rootPath: string, beatmapsPerSecond?: number) {
@@ -67,12 +69,14 @@ export class BeatmapDownloader {
       fs.mkdirSync(this._rootPath, { recursive: true });
     }
 
-    this._beatmapsPerSecond = beatmapsPerSecond || 1;
+    this._beatmapsPerSecond = beatmapsPerSecond || 0;
 
-    this._limiter = new limiter.RateLimiter({
-      tokensPerInterval: this._beatmapsPerSecond,
-      interval: 'second',
-    });
+    if (this._beatmapsPerSecond !== 0) {
+      this._limiter = new limiter.RateLimiter({
+        tokensPerInterval: this._beatmapsPerSecond,
+        interval: 'second',
+      });
+    }
   }
 
   get progress(): number {
@@ -129,9 +133,10 @@ export class BeatmapDownloader {
    */
   async downloadAll(): Promise<DownloadResult[]> {
     const results = [];
+    const isSynchronous = this._beatmapsPerSecond === 0;
 
     while (!this._queue.isEmpty) {
-      results.push(this.downloadSingle());
+      results.push(isSynchronous ? await this.downloadSingle() : this.downloadSingle());
     }
 
     return Promise.all(results);
@@ -179,7 +184,9 @@ export class BeatmapDownloader {
       this._processedFiles.add(entry.fileName);
     }
 
-    await this._limiter.removeTokens(1);
+    if (this._limiter) {
+      await this._limiter.removeTokens(1);
+    }
 
     const links = this._getRequestLinks(entry);
 
