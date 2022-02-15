@@ -273,13 +273,14 @@ export class BeatmapDownloader {
     const filePath = this._getFilePath(entry);
 
     /**
+     * Invalidate file if it requires redownloading.
+     */
+    if (entry.redownload) return false;
+
+    /**
      * If file exists or it isn't empty.
      */
-    if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
-      return true;
-    }
-
-    return false;
+    return fs.existsSync(filePath) && fs.statSync(filePath).size > 0;
   }
 
   /**
