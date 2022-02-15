@@ -117,12 +117,7 @@ export class BeatmapDownloader {
       this.reset();
     }
 
-    inputs?.forEach((input) => {
-      const entry = input instanceof DownloadEntry
-        ? input : new DownloadEntry(input);
-
-      this.addSingleEntry(entry);
-    });
+    inputs?.forEach((input) => this.addSingleEntry(input));
 
     return this._queue.count;
   }
