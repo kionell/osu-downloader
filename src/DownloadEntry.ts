@@ -1,4 +1,5 @@
 import { DownloadTypes } from './Enums/DownloadTypes';
+import { IDownloadEntryOptions } from './Interfaces/IDownloadEntryOptions';
 
 /**
  * A downloader entry which can be added to the queue.
@@ -20,16 +21,27 @@ export class DownloadEntry {
   type: DownloadTypes = DownloadTypes.Beatmap;
 
   /**
+   * Can be used to force redownload of this entry.
+   */
+  redownload = false;
+
+  /**
    * @param id A beatmap or beatmapset ID.
    * @param mirror A server for downloading files.
    * @constructor
    */
-  constructor(id: string | number, type?: DownloadTypes) {
+  constructor(id: string | number, options?: IDownloadEntryOptions) {
     if (!DownloadEntry.NUM_REGEX.test(id.toString())) {
       throw new Error(`Wrong ID! ID: ${id}`);
     }
 
-    if (type) this.type = type;
+    if (options?.type) {
+      this.type = options.type;
+    }
+
+    if (options?.redownload) {
+      this.redownload = options.redownload;
+    }
 
     this.id = id;
   }
