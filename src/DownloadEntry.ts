@@ -60,7 +60,12 @@ export class DownloadEntry {
   }
 
   get fileExtension(): string {
-    return this.isArchive ? 'osz' : 'osu';
+    switch (this.type) {
+      case DownloadType.Set: return 'osz';
+      case DownloadType.Replay: return 'osr';
+    }
+
+    return 'osu';
   }
 
   get fileName(): string {
