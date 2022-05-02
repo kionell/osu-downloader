@@ -1,20 +1,20 @@
-import * as limiter from 'limiter';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import * as limiter from 'limiter';
 import { Readable } from 'stream';
-import { IncomingMessage } from 'http';
 
-import { LinkGenerator } from './LinkGenerator';
 import { DownloadingQueue } from './DownloadingQueue';
 import { DownloadResult } from './DownloadResult';
 import { DownloadEntry } from './DownloadEntry';
-import { DownloadStatuses } from './Enums/DownloadStatuses';
+import { DownloadStatus } from './Enums/DownloadStatus';
+import { DownloadType } from './Enums/DownloadType';
+import { LinkGenerator } from './Utils/LinkGenerator';
 
 /**
- * A beatmap downloader.
+ * A file downloader.
  */
-export class BeatmapDownloader {
+export class Downloader {
   /**
    * The queue of downloading maps.
    */
@@ -26,9 +26,9 @@ export class BeatmapDownloader {
   protected _validFiles: Set<string> = new Set();
 
   /**
-   * List of files that are currently being processed.
+   * List of entries that are currently being processed.
    */
-  protected _processedFiles: Set<string> = new Set();
+  protected _processedEntries: Set<string> = new Set();
 
   /**
    * A root path for saving files.
@@ -58,8 +58,7 @@ export class BeatmapDownloader {
 
   /**
    * @param rootPath A path for saving beatmaps.
-   * @param beatmapsPerSecond How many beatmaps per second will be downloaded. 
-   * (0 - synchronous downloading).
+   * @param beatmapsPerSecond How many beatmaps per second will be downloaded. (0 - synchronous downloading).
    * @constructor
    */
   constructor(rootPath: string, beatmapsPerSecond?: number) {
@@ -87,22 +86,22 @@ export class BeatmapDownloader {
 
   /**
    * Adds a single entry to the beatmap downloader's queue.
-   * @param input The entry to be added.
+   * @param input ID or download entry.
    * @returns The number of entries in the queue.
    */
   addSingleEntry(input: string | number | DownloadEntry): number {
-    if (this._queue.isEmpty) {
-      this.reset();
-    }
+    if (this._queue.isEmpty) this.reset();
 
     const entry = input instanceof DownloadEntry
-      ? input : new DownloadEntry(input);
+      ? input : new DownloadEntry({ id: input });
 
-    if (this._checkFileValidity(entry)) {
+    if (entry.save && this._checkFileValidity(entry)) {
       this._validFiles.add(entry.fileName);
     }
 
     this._queue.enqueue(entry);
+
+    this.totalFiles = Math.max(this.totalFiles, this._queue.count);
 
     return this._queue.count;
   }
@@ -113,8 +112,10 @@ export class BeatmapDownloader {
    * @returns The number of entries in the queue.
    */
   addMultipleEntries(inputs: (string | number | DownloadEntry)[]): number {
-    if (this._queue.isEmpty) {
-      this.reset();
+    if (this._queue.isEmpty) this.reset();
+
+    if (!Array.isArray(inputs)) {
+      return this._queue.count;
     }
 
     inputs?.forEach((input) => this.addSingleEntry(input));
@@ -123,8 +124,10 @@ export class BeatmapDownloader {
   }
 
   /**
-   * Downloads every map from the queue.
-   * @returns The download results.
+   * Downloads every file from the queue. 
+   * By default it saves all files on a disk and resulting buffer will be null.
+   * If file is already exists or failed to write the buffer will also be null.
+   * @returns Download results.
    */
   async downloadAll(): Promise<DownloadResult[]> {
     const results = [];
@@ -137,31 +140,61 @@ export class BeatmapDownloader {
     return Promise.all(results);
   }
 
+  /**
+   * Downloads a single file from the queue. 
+   * By default it saves all files on a disk and resulting buffer will be null.
+   * If file is already exists or failed to write the buffer will also be null.
+   * @returns Download results.
+   */
   async downloadSingle(): Promise<DownloadResult> {
-    this.totalFiles = Math.max(this.totalFiles, this._queue.count);
-
     const entry = this._queue.dequeue();
 
     /**
-     * Check if file is:
-     *  - being processed through another entry
-     *  - already downloaded.
+     * Check if file is being processed through another entry.
      */
-    if (this._checkAvailability(entry) && !this._checkFileValidity(entry)) {
-      return this._requestFile(entry);
+    if (!this._checkAvailability(entry)) {
+      return this._generateResult(entry, DownloadStatus.AlreadyInProcess);
     }
 
-    this.currentFile++;
+    /**
+     * Check if file is already downloaded.
+     */
+    if (entry.save && this._checkFileValidity(entry)) {
+      return this._generateResult(entry, DownloadStatus.FileExists);
+    }
 
-    return new DownloadResult(entry, DownloadStatuses.FileExists, this._rootPath);
+    const readable = await this._requestFile(entry);
+
+    if (!readable?.readable) {
+      return this._generateResult(entry, DownloadStatus.FailedToDownload);
+    }
+
+    if (entry.save) {
+      const isWritten = await this._tryToSaveFile(readable, entry);
+      const status = isWritten
+        ? DownloadStatus.Written
+        : DownloadStatus.FailedToWrite;
+
+      return this._generateResult(entry, status);
+    }
+
+    const buffer = await this._tryToGetBuffer(readable);
+
+    const isValid = this._validateBuffer(buffer, entry.type);
+    const status = isValid
+      ? DownloadStatus.Downloaded
+      : DownloadStatus.FailedToRead;
+
+    return this._generateResult(entry, status, buffer);
   }
+
   /**
    * Cancels the current beatmap downloader work.
    */
   reset(): void {
     this._queue.clear();
     this._validFiles.clear();
-    this._processedFiles.clear();
+    this._processedEntries.clear();
     this.currentFile = 0;
     this.totalFiles = 0;
   }
@@ -169,14 +202,14 @@ export class BeatmapDownloader {
   /**
    * Requests a file from the download entry using the rate limiter.
    * @param entry A download entry.
-   * @returns The downloading result.
+   * @returns Readable stream.
    */
-  private async _requestFile(entry: DownloadEntry): Promise<DownloadResult> {
+  private async _requestFile(entry: DownloadEntry): Promise<Readable | null> {
     /**
      * Block current file to prevent downloading from multiple entries.
      */
     if (this._checkAvailability(entry)) {
-      this._processedFiles.add(entry.fileName);
+      this._processedEntries.add(entry.fileName);
     }
 
     if (this._limiter) {
@@ -189,7 +222,6 @@ export class BeatmapDownloader {
       try {
         const response = await axios({
           url: link,
-          method: 'GET',
           responseType: 'stream',
           headers: {
             'Accept': 'application/octet-stream',
@@ -197,42 +229,43 @@ export class BeatmapDownloader {
           },
         });
 
-        const message = response.data as IncomingMessage;
-
-        if (response.status !== 200 || !message.readableLength) continue;
-
-        return this._tryToSaveFile(message, entry);
+        if (response.status === 200) return response.data;
       }
-      catch (err) {
+      catch {
         continue;
       }
     }
 
-    this.currentFile++;
-
-    return new DownloadResult(entry, DownloadStatuses.FailedToDownload, this._rootPath);
+    return null;
   }
 
-  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry): Promise<DownloadResult> {
+  private async _tryToGetBuffer(readable: Readable): Promise<Buffer | null> {
+    const chunks = [];
+
+    try {
+      for await (const chunk of readable) {
+        chunks.push(chunk);
+      }
+
+      return Buffer.concat(chunks);
+    }
+    catch {
+      return null;
+    }
+  }
+
+  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry): Promise<boolean> {
     const filePath = this._getFilePath(entry);
     const writable = fs.createWriteStream(filePath);
 
     return new Promise((res) => {
-      const onError = () => {
-        this.currentFile++;
-        res(new DownloadResult(entry, DownloadStatuses.FailedToWrite, this._rootPath));
-      };
-
-      const onSuccess = () => {
-        this.currentFile++;
-        res(new DownloadResult(entry, DownloadStatuses.Downloaded, this._rootPath));
-      };
-
-      writable.on('error', onError);
+      writable.on('error', () => res(false));
 
       writable.on('finish', () => {
-        writable.bytesWritten > 0 ? onSuccess() : onError();
+        res(writable.bytesWritten > 0);
+
         writable.close();
+        readable.destroy();
       });
 
       readable.pipe(writable);
@@ -240,18 +273,44 @@ export class BeatmapDownloader {
   }
 
   /**
-   * Generates request link by corresponding download entry.
-   * @param entry A download entry.
-   * @returns The generated request link.
+   * Generates a new download result.
+   * @param entry Current download entry.
+   * @param status Status of a download result.
+   * @param data File data or null.
+   * @returns Download result.
    */
-  private _getRequestLinks(entry: DownloadEntry): string[] {
-    return new LinkGenerator(entry).generate();
+  private _generateResult(entry: DownloadEntry, status: DownloadStatus, data: Buffer | null = null): DownloadResult {
+    // Increment current file counter.
+    this.currentFile++;
+
+    return new DownloadResult(entry, status, data, this._rootPath);
   }
 
   /**
-   * Generates the path to the downloaded file.
+   * Generates request link by corresponding download entry.
    * @param entry A download entry.
-   * @returns The generated request link.
+   * @returns Generated request link.
+   */
+  private _getRequestLinks(entry: DownloadEntry): string[] {
+    const links = [];
+
+    // Prioritize custom URL.
+    if (entry.url) links.push(entry.url);
+
+    if (entry.id) {
+      const generator = new LinkGenerator(entry.type, entry.id);
+      const additional = generator.generate();
+
+      links.push(...additional);
+    }
+
+    return links;
+  }
+
+  /**
+   * Generates absolute file path to the downloaded file.
+   * @param entry A download entry.
+   * @returns Absolute file path.
    */
   private _getFilePath(entry: DownloadEntry): string {
     return path.join(this._rootPath, entry.fileName);
@@ -277,10 +336,34 @@ export class BeatmapDownloader {
      */
     if (entry.redownload) return false;
 
-    /**
-     * If file exists or it isn't empty.
-     */
-    return fs.existsSync(filePath) && fs.statSync(filePath).size > 0;
+    if (!fs.existsSync(filePath)) return false;
+
+    const buffer = Buffer.alloc(17);
+    const fd = fs.openSync(filePath, 'r');
+
+    fs.readSync(fd, buffer, { length: 17 });
+
+    return this._validateBuffer(buffer, entry.type);
+  }
+
+  /**
+   * Checks if this buffer is valid or not.
+   * @param buffer Target buffer or null.
+   * @param type File type.
+   * @returns If this buffer valid or not.
+   */
+  private _validateBuffer(buffer: Buffer | null, type: DownloadType): boolean {
+    if (!buffer) return false;
+
+    if (type !== DownloadType.Beatmap) {
+      return buffer.length > 0;
+    }
+
+    if (buffer.length < 17) return false;
+
+    const start = buffer.slice(0, 17).toString();
+
+    return start === 'osu file format v';
   }
 
   /**
@@ -289,6 +372,6 @@ export class BeatmapDownloader {
    * @returns Whether the file is available to download
    */
   private _checkAvailability(entry: DownloadEntry): boolean {
-    return !this._processedFiles.has(entry.fileName);
+    return !this._processedEntries.has(entry.fileName);
   }
 }
