@@ -1,6 +1,38 @@
-import { DownloadTypes } from '../Enums/DownloadTypes';
+import { DownloadType } from '../Enums/DownloadType';
 
+/**
+ * Download entry options.
+ */
 export interface IDownloadEntryOptions {
-  type?: DownloadTypes;
+  /**
+   * Beatmap ID or beatmapset ID.
+   */
+  id?: string | number;
+
+  /**
+   * Custom URL to download this file.
+   */
+  url?: string;
+
+  /**
+   * Custom file name which will be used to save this file.
+   */
+  customName?: string;
+
+  /**
+   * Type of this file.
+   */
+  type?: DownloadType;
+
+  /**
+   * Force file redownloading if it is already exists?
+   */
   redownload?: boolean;
+
+  /**
+   * Should file be saved on a disk or not?
+   * If you need to download a file and not to save it, you can choose false.
+   * In that case all data will be stored in buffer of the download result.
+   */
+  save?: boolean;
 }
