@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 
 import { DownloadEntry } from './DownloadEntry';
-import { DownloadStatuses } from './Enums/DownloadStatuses';
+import { DownloadStatus } from './Enums/DownloadStatus';
 
 /**
  * A result of downloading a beatmap.
@@ -11,12 +11,23 @@ export class DownloadResult {
   /**
    * A beatmap or beatmapset ID which was processed.
    */
-  id: string | number;
+  id?: string | number;
+
+  /**
+   * Custom URL which was processed.
+   */
+  url?: string;
+
+  /**
+   * This buffer will store file data in case 
+   * if the user decides not to save it on a disk.
+   */
+  buffer: Buffer | null;
 
   /**
    * Status of the downloading.
    */
-  status: DownloadStatuses;
+  status: DownloadStatus;
 
   /**
    * The name of a downloaded file.
@@ -30,12 +41,16 @@ export class DownloadResult {
 
   /**
    * @param entry A download entry.
+   * @param buffer File data or null
    * @param status The download status.
    * @param rootPath The root path to the file folder.
    * @constructor
    */
-  constructor(entry: DownloadEntry, status: DownloadStatuses, rootPath: string) {
-    this.id = entry.id.toString();
+  constructor(entry: DownloadEntry, status: DownloadStatus, buffer: Buffer | null, rootPath: string) {
+    if (entry.id) this.id = entry.id;
+    if (entry.url) this.url = entry.url;
+
+    this.buffer = buffer;
     this.status = status;
     this.fileName = entry.fileName;
     this.filePath = path.resolve(rootPath, entry.fileName);
@@ -52,6 +67,8 @@ export class DownloadResult {
    * Do file exists or not?
    */
   get fileExists(): boolean {
+    if (this.buffer && this.buffer.length > 0) return true;
+
     return fs.existsSync(this.filePath);
   }
 
