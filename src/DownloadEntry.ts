@@ -56,7 +56,7 @@ export class DownloadEntry {
   }
 
   get file(): string {
-    return this.id.toString();
+    return this.customName ?? this.id?.toString() ?? 'file';
   }
 
   get fileExtension(): string {
