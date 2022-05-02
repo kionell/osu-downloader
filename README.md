@@ -4,12 +4,12 @@
 [![Package](https://img.shields.io/npm/v/osu-downloader)](https://www.npmjs.com/package/osu-downloader)
 
 
-This is a simple tool for downloading osu! beatmaps and beatmapsets.
+This is a simple tool for downloading osu! beatmaps, beatmapsets and replays.
 This package provides the following features:
 
 - Built-in rate limiter to prevent too many requests to the servers.
 - Ability to choose the number of files that can be downloaded per second.
-- Ability to choose between .osu and .osz files.
+- Ability to choose between .osu, .osz and .osr files.
 - Multiple downloading sources for beatmapsets.
 - Protection against multiple downloads of the same file.
 - File validation before every downloading.
