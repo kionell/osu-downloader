@@ -10,6 +10,7 @@ import { DownloadEntry } from './DownloadEntry';
 import { DownloadStatus } from './Enums/DownloadStatus';
 import { DownloadType } from './Enums/DownloadType';
 import { LinkGenerator } from './Utils/LinkGenerator';
+import { IDownloaderOptions } from './Interfaces/IDownloaderOptions';
 
 /**
  * A file downloader.
@@ -57,27 +58,17 @@ export class Downloader {
   totalFiles = 0;
 
   /**
-   * @param beatmapsPerSecond How many beatmaps per second will be downloaded. (0 - synchronous downloading).
-   * @constructor
-   */
-  constructor(beatmapsPerSecond?: number);
-
-  /**
    * @param rootPath A path for saving beatmaps.
    * @param beatmapsPerSecond How many beatmaps per second will be downloaded. (0 - synchronous downloading).
    * @constructor
    */
-  constructor(rootPath?: string | number, beatmapsPerSecond?: number) {
+  constructor({ rootPath, beatmapsPerSecond }: IDownloaderOptions) {
     if (typeof rootPath === 'string') {
       this._rootPath = path.normalize(rootPath);
 
       if (!fs.existsSync(this._rootPath)) {
         fs.mkdirSync(this._rootPath, { recursive: true });
       }
-    }
-
-    if (typeof rootPath === 'number') {
-      beatmapsPerSecond = rootPath;
     }
 
     this._beatmapsPerSecond = beatmapsPerSecond || 0;
