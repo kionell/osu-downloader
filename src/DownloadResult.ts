@@ -37,7 +37,7 @@ export class DownloadResult {
   /**
    * The path of a downloaded file.
    */
-  filePath: string;
+  filePath: string | null = null;
 
   /**
    * @param entry A download entry.
@@ -46,14 +46,17 @@ export class DownloadResult {
    * @param rootPath The root path to the file folder.
    * @constructor
    */
-  constructor(entry: DownloadEntry, status: DownloadStatus, buffer: Buffer | null, rootPath: string) {
+  constructor(entry: DownloadEntry, status: DownloadStatus, buffer: Buffer | null, rootPath: string | null) {
     if (entry.id) this.id = entry.id;
     if (entry.url) this.url = entry.url;
 
     this.buffer = buffer;
     this.status = status;
     this.fileName = entry.fileName;
-    this.filePath = path.resolve(rootPath, entry.fileName);
+
+    if (rootPath) {
+      this.filePath = path.resolve(rootPath, entry.fileName);
+    }
   }
 
   /**
@@ -69,7 +72,7 @@ export class DownloadResult {
   get fileExists(): boolean {
     if (this.buffer && this.buffer.length > 0) return true;
 
-    return fs.existsSync(this.filePath);
+    return !!this.filePath && fs.existsSync(this.filePath);
   }
 
   /**

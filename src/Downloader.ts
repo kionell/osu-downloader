@@ -33,7 +33,7 @@ export class Downloader {
   /**
    * A root path for saving files.
    */
-  protected _rootPath: string;
+  protected _rootPath: string | null = null;
 
   /**
    * A rate limiter to prevent big amount of requests.
@@ -57,15 +57,27 @@ export class Downloader {
   totalFiles = 0;
 
   /**
+   * @param beatmapsPerSecond How many beatmaps per second will be downloaded. (0 - synchronous downloading).
+   * @constructor
+   */
+  constructor(beatmapsPerSecond?: number);
+
+  /**
    * @param rootPath A path for saving beatmaps.
    * @param beatmapsPerSecond How many beatmaps per second will be downloaded. (0 - synchronous downloading).
    * @constructor
    */
-  constructor(rootPath: string, beatmapsPerSecond?: number) {
-    this._rootPath = path.normalize(rootPath);
+  constructor(rootPath?: string | number, beatmapsPerSecond?: number) {
+    if (typeof rootPath === 'string') {
+      this._rootPath = path.normalize(rootPath);
 
-    if (!fs.existsSync(this._rootPath)) {
-      fs.mkdirSync(this._rootPath, { recursive: true });
+      if (!fs.existsSync(this._rootPath)) {
+        fs.mkdirSync(this._rootPath, { recursive: true });
+      }
+    }
+
+    if (typeof rootPath === 'number') {
+      beatmapsPerSecond = rootPath;
     }
 
     this._beatmapsPerSecond = beatmapsPerSecond || 0;
@@ -159,7 +171,7 @@ export class Downloader {
     /**
      * Check if file is already downloaded.
      */
-    if (entry.save && this._checkFileValidity(entry)) {
+    if (this._rootPath && entry.save && this._checkFileValidity(entry)) {
       return this._generateResult(entry, DownloadStatus.FileExists);
     }
 
@@ -169,7 +181,7 @@ export class Downloader {
       return this._generateResult(entry, DownloadStatus.FailedToDownload);
     }
 
-    if (entry.save) {
+    if (this._rootPath && entry.save) {
       const isWritten = await this._tryToSaveFile(readable, entry);
       const status = isWritten
         ? DownloadStatus.Written
@@ -256,6 +268,9 @@ export class Downloader {
 
   private async _tryToSaveFile(readable: Readable, entry: DownloadEntry): Promise<boolean> {
     const filePath = this._getFilePath(entry);
+
+    if (!filePath) return false;
+
     const writable = fs.createWriteStream(filePath);
 
     return new Promise((res) => {
@@ -312,7 +327,9 @@ export class Downloader {
    * @param entry A download entry.
    * @returns Absolute file path.
    */
-  private _getFilePath(entry: DownloadEntry): string {
+  private _getFilePath(entry: DownloadEntry): string | null {
+    if (!this._rootPath) return null;
+
     return path.join(this._rootPath, entry.fileName);
   }
 
@@ -329,14 +346,14 @@ export class Downloader {
       return true;
     }
 
-    const filePath = this._getFilePath(entry);
-
     /**
      * Invalidate file if it requires redownloading.
      */
     if (entry.redownload) return false;
 
-    if (!fs.existsSync(filePath)) return false;
+    const filePath = this._getFilePath(entry);
+
+    if (!filePath || !fs.existsSync(filePath)) return false;
 
     const buffer = Buffer.alloc(17);
     const fd = fs.openSync(filePath, 'r');
