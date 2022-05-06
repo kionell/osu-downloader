@@ -1,3 +1,4 @@
+import md5 from 'md5';
 import { DownloadType } from './Enums/DownloadType';
 import { IDownloadEntryOptions } from './Interfaces/IDownloadEntryOptions';
 
@@ -56,7 +57,11 @@ export class DownloadEntry {
   }
 
   get file(): string {
-    return this.customName ?? this.id?.toString() ?? 'file';
+    if (this.customName) return this.customName;
+    if (this.id) return this.id.toString();
+    if (this.url) return md5(this.url);
+
+    return 'file';
   }
 
   get fileExtension(): string {
