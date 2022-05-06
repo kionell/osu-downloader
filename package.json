@@ -2,7 +2,10 @@
   "name": "osu-downloader",
   "version": "0.3.0",
   "description": "A tool for downloading osu! beatmaps and beatmapsets.",
-  "main": "./lib/index.js",
+  "exports": {
+    "import": "./lib/index.mjs",
+    "require": "./lib/index.cjs"
+  },
   "types": "./lib/index.d.ts",
   "scripts": {
     "build": "rollup -c && npm run format",
