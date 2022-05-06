@@ -28,6 +28,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^22.0.0",
     "@rollup/plugin-typescript": "^8.2.1",
     "@types/jest": "^26.0.22",
     "@types/md5": "^2.3.2",

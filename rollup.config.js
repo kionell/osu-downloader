@@ -1,4 +1,5 @@
 import typescript from '@rollup/plugin-typescript';
+import commonjs from '@rollup/plugin-commonjs';
 import externals from 'rollup-plugin-node-externals';
 import dts from 'rollup-plugin-dts';
 
@@ -6,7 +7,6 @@ export default [
   {
     plugins: [
       typescript(),
-      typescriptPaths(),
       externals({
         deps: true,
       }),
@@ -23,7 +23,6 @@ export default [
   {
     plugins: [
       typescript(),
-      typescriptPaths(),
       externals({
         deps: true,
       }),
@@ -39,7 +38,6 @@ export default [
   {
     plugins: [
       typescript(),
-      typescriptPaths(),
       dts({
         compilerOptions: {
           removeComments: false,
