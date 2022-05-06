@@ -5,10 +5,25 @@ import dts from 'rollup-plugin-dts';
 export default [
   {
     plugins: [
-      typescript({
-        "removeComments": false,
-        "declaration": true,
+      typescript(),
+      typescriptPaths(),
+      externals({
+        deps: true,
       }),
+      commonjs(),
+    ],
+    input: './src/index.ts',
+    output: [
+      {
+        file: './lib/index.cjs',
+        format: 'cjs',
+      },
+    ],
+  },
+  {
+    plugins: [
+      typescript(),
+      typescriptPaths(),
       externals({
         deps: true,
       }),
@@ -16,13 +31,24 @@ export default [
     input: './src/index.ts',
     output: [
       {
-        file: './lib/index.js',
+        file: './lib/index.mjs',
         format: 'es',
       },
     ],
   },
   {
-    plugins: [dts()],
+    plugins: [
+      typescript(),
+      typescriptPaths(),
+      dts({
+        compilerOptions: {
+          removeComments: false,
+        },
+      }),
+      externals({
+        deps: true,
+      }),
+    ],
     input: './src/index.ts',
     output: {
       file: './lib/index.d.ts',

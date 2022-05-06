@@ -15,7 +15,6 @@
     "prepublishOnly": "npm run build",
     "docs": "npx typedoc src/index.ts"
   },
-  "type": "module",
   "keywords": [
     "osu",
     "beatmap",
