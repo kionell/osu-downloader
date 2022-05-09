@@ -38,8 +38,8 @@ const downloader = new Downloader({
 
 const entry = new DownloadEntry({ id: 91 });
 
-downloader.addSingleEntry(entry);
-downloader.downloadSingle();
+await downloader.addSingleEntry(entry);
+await downloader.downloadSingle();
 ```
 
 ## Basic example of multiple file downloading
@@ -59,11 +59,11 @@ const entries = [
   new DownloadEntry({ id: 1626530 }),
 ];
 
-downloader.addMultipleEntries(entries);
+await downloader.addMultipleEntries(entries);
 
-downloader.downloadSingle(); // First file will be downloaded.
-downloader.downloadSingle(); // Second file will be downloaded.
-downloader.downloadAll();    // Rest of the files will be downloaded.
+await downloader.downloadSingle(); // First file will be downloaded.
+await downloader.downloadSingle(); // Second file will be downloaded.
+await downloader.downloadAll();    // Rest of the files will be downloaded.
 ```
 
 ## Advanced example of file downloading
@@ -79,7 +79,7 @@ const downloader = new Downloader({
 /**
  * Adds a new entry for .osu file to the download query.
  */
-downloader.addSingleEntry(new DownloadEntry({
+await downloader.addSingleEntry(new DownloadEntry({
   id: '91',
   save: false // Don't save file on a disk.
 }));
@@ -87,7 +87,7 @@ downloader.addSingleEntry(new DownloadEntry({
 /**
  * Adds a new entry for .osz file to the download query.
  */
-downloader.addSingleEntry(new DownloadEntry({
+await downloader.addSingleEntry(new DownloadEntry({
   id: 3;
   customName: 'myfavouritebeatmapset.osz';
   type: DownloadType.Set;
@@ -98,7 +98,7 @@ downloader.addSingleEntry(new DownloadEntry({
  * Adds multiple entries to the download query.
  * You can combine different styles of writing and file types.
  */
-downloader.addMultipleEntries([
+await downloader.addMultipleEntries([
   /* Beatmapset with ID 773801. */
   new DownloadEntry({
     id: 773801;
