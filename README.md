@@ -29,22 +29,35 @@ Since this project uses ES Modules, it is recommended to use Node.js 12.22.0 or 
 ## Basic example of single file downloading
 
 ```js
-import { BeatmapDownloader } from 'osu-downloader'
+import { Downloader, DownloadEntry } from 'osu-downloader'
 
-const downloader = new BeatmapDownloader('./cache', 2);
+const downloader = new Downloader({
+  rootPath: './cache', 
+  filesPerSecond: 0, // Synchronous downloading.
+});
 
-downloader.addSingleEntry('91');
+const entry = new DownloadEntry({ id: 91 });
+
+downloader.addSingleEntry(entry);
 downloader.downloadSingle();
 ```
 
 ## Basic example of multiple file downloading
 
 ```js
-import { BeatmapDownloader } from 'osu-downloader'
+import { Downloader } from 'osu-downloader'
 
-const downloader = new BeatmapDownloader('./cache', 2);
+const downloader = new Downloader({
+  rootPath: './cache', 
+  filesPerSecond: 2,
+});
 
-const entries = ['91', '335628', 1228616];
+const entries = [
+  new DownloadEntry({ id: '91' }),
+  new DownloadEntry({ id: '335628' }),
+  new DownloadEntry({ id: 1228616 }),
+  new DownloadEntry({ id: 1626530 }),
+];
 
 downloader.addMultipleEntries(entries);
 
@@ -53,46 +66,72 @@ downloader.downloadSingle(); // Second file will be downloaded.
 downloader.downloadAll();    // Rest of the files will be downloaded.
 ```
 
-## Advanced example of file downloading using download entries
+## Advanced example of file downloading
 
 ```js
-import { BeatmapDownloader, DownloadEntry, DownloadTypes } from 'osu-downloader'
+import { Downloader, DownloadEntry, DownloadTypes } from 'osu-downloader'
 
-const downloader = new BeatmapDownloader('./cache', 2);
+const downloader = new Downloader({
+  rootPath: './cache', 
+  filesPerSecond: 2,
+});
 
 /**
  * Adds a new entry for .osu file to the download query.
  */
-downloader.addSingleEntry(new DownloadEntry('91'));
+downloader.addSingleEntry(new DownloadEntry({
+  id: '91',
+  save: false // Don't save file on a disk.
+}));
 
 /**
  * Adds a new entry for .osz file to the download query.
  */
-downloader.addSingleEntry(new DownloadEntry('91', DownloadTypes.Set));
+downloader.addSingleEntry(new DownloadEntry({
+  id: 3;
+  customName: 'myfavouritebeatmapset.osz';
+  type: DownloadType.Set;
+  redownload: true;
+}));
 
 /**
  * Adds multiple entries to the download query.
  * You can combine different styles of writing and file types.
  */
 downloader.addMultipleEntries([
-  new DownloadEntry('91', DownloadTypes.Set),                  // osu! beatmapset with ID 91.
-  new DownloadEntry('1229091', DownloadTypes.Set),             // osu! beatmapset with ID 1229091.
-  new DownloadEntry('91', DownloadTypes.Beatmap),              // osu! beatmap with ID 91.
+  /* Beatmapset with ID 773801. */
+  new DownloadEntry({
+    id: 773801;
+    type: DownloadType.Set;
+  }),
 
-  /* Already downloaded maps will return status code 1. */
-  new DownloadEntry(91),                                       // osu! beatmap with ID 91.
-  '91',                                                        // osu! beatmap with ID 91.
-  91,                                                          // osu! beatmap with ID 91.
+  /* Non-existent osu! beatmaps will return status code -3 (Failed to download) */
+  new DownloadEntry({
+    id: 1337;
+  }),
 
-  /* Non-existent osu! beatmaps will return status code -1 */
-  new DownloadEntry(1337),                                     // osu! beatmap with ID 1337.
+  /* Already downloaded files will return status code 1 (Already exists). */
+  new DownloadEntry({
+    id: 773801;
+    type: DownloadType.Set;
+  }),
+
+  /* This, however, should return status code 2 (Downloaded) as we have redownload flag. */
+  new DownloadEntry({
+    id: 773801;
+    type: DownloadType.Set;
+    redownload: true,
+  }),
+
+  /** 
+   * Will download a replay file via custom URL. 
+   * If there is no custom name then file will be named as MD5 hash of URL. 
+   */
+  new DownloadEntry({
+    url: 'https://your-replay-url',
+    type: DownloadType.Replay,
+  }),
 ]);
-
-/**
- * All number or string IDs will always refer to the osu! beatmaps.
- */
-downloader.addSingleEntry('965234');
-downloader.addSingleEntry(1949106);
 
 /**
  * Print downloader progress to the console every 100ms.
@@ -111,15 +150,19 @@ const results = await downloader.downloadAll();    // Rest of the files will be 
 
 ## Status Codes
 
-- -1 - File failed to download.
--  0 - File failed to write.
--  1 - File already exists.
+- -3 - File failed to download.
+- -2 - File failed to read.
+- -1 - File failed to write.
+-  0 - Download is already in process via another entry,
+-  1 - File already exists,
 -  2 - File downloaded successfuly.
+-  3 - Written on a disk.
 
 ## File types
 
 - 0 - osu! beatmap (.osu file format).
-- 1 - osu! beatmapsets (.osz file format).
+- 1 - osu! beatmapset (.osz file format).
+- 2 - osu! replay  (.osr file format).
 
 ## Documentation
 
