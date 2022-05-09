@@ -42,10 +42,10 @@ export class Downloader {
   protected _limiter: limiter.RateLimiter | null = null;
 
   /**
-   * How many beatmaps can be downloaded in one second.
+   * How many files can be downloaded in one second.
    * (0 - synchronous downloading).
    */
-  protected _beatmapsPerSecond = 0;
+  protected _filesPerSecond = 0;
 
   /**
    * The number of the current downloading file.
@@ -58,11 +58,11 @@ export class Downloader {
   totalFiles = 0;
 
   /**
-   * @param rootPath A path for saving beatmaps.
-   * @param beatmapsPerSecond How many beatmaps per second will be downloaded. (0 - synchronous downloading).
+   * @param rootPath A path for saving files.
+   * @param filesPerSecond How many files per second will be downloaded. (0 - synchronous downloading).
    * @constructor
    */
-  constructor({ rootPath, beatmapsPerSecond }: IDownloaderOptions) {
+  constructor({ rootPath, filesPerSecond }: IDownloaderOptions) {
     if (typeof rootPath === 'string') {
       this._rootPath = path.normalize(rootPath);
 
@@ -71,11 +71,11 @@ export class Downloader {
       }
     }
 
-    this._beatmapsPerSecond = beatmapsPerSecond || 0;
+    this._filesPerSecond = filesPerSecond || 0;
 
-    if (this._beatmapsPerSecond !== 0) {
+    if (this._filesPerSecond !== 0) {
       this._limiter = new limiter.RateLimiter({
-        tokensPerInterval: this._beatmapsPerSecond,
+        tokensPerInterval: this._filesPerSecond,
         interval: 'second',
       });
     }
@@ -88,7 +88,7 @@ export class Downloader {
   }
 
   /**
-   * Adds a single entry to the beatmap downloader's queue.
+   * Adds a single entry to the downloader's queue.
    * @param input ID or download entry.
    * @returns The number of entries in the queue.
    */
@@ -110,7 +110,7 @@ export class Downloader {
   }
 
   /**
-   * Adds multiple entries to the beatmap downloader's queue.
+   * Adds multiple entries to the downloader's queue.
    * @param inputs The entries to be added.
    * @returns The number of entries in the queue.
    */
@@ -134,7 +134,7 @@ export class Downloader {
    */
   async downloadAll(): Promise<DownloadResult[]> {
     const results = [];
-    const isSynchronous = this._beatmapsPerSecond === 0;
+    const isSynchronous = this._filesPerSecond === 0;
 
     while (!this._queue.isEmpty) {
       results.push(isSynchronous ? await this.downloadSingle() : this.downloadSingle());
@@ -192,7 +192,7 @@ export class Downloader {
   }
 
   /**
-   * Cancels the current beatmap downloader work.
+   * Cancels the current downloader work.
    */
   reset(): void {
     this._queue.clear();
