@@ -372,9 +372,12 @@ export class Downloader {
 
     if (buffer.length < 17) return false;
 
-    const start = buffer.slice(0, 17).toString();
+    const hasBOM = buffer[0] === 239 && buffer[1] === 187 && buffer[2] === 191;
+    const offset = hasBOM ? 3 : 0;
 
-    return start === 'osu file format v';
+    const string = buffer.slice(offset, 17 + offset).toString();
+
+    return string.startsWith('osu file format v');
   }
 
   /**
