@@ -84,13 +84,13 @@ export class Downloader {
    * @param input ID or download entry.
    * @returns The number of entries in the queue.
    */
-  addSingleEntry(input: string | number | DownloadEntry): number {
+  async addSingleEntry(input: string | number | DownloadEntry): Promise<number> {
     if (this._queue.isEmpty) this.reset();
 
     const entry = input instanceof DownloadEntry
       ? input : new DownloadEntry({ id: input });
 
-    if (entry.save && this._checkFileValidity(entry)) {
+    if (entry.save && await this._checkFileValidity(entry)) {
       this._validFiles.add(entry.fileName);
     }
 
@@ -106,14 +106,16 @@ export class Downloader {
    * @param inputs The entries to be added.
    * @returns The number of entries in the queue.
    */
-  addMultipleEntries(inputs: (string | number | DownloadEntry)[]): number {
+  async addMultipleEntries(inputs: (string | number | DownloadEntry)[]): Promise<number> {
     if (this._queue.isEmpty) this.reset();
 
     if (!Array.isArray(inputs)) {
       return this._queue.count;
     }
 
-    inputs?.forEach((input) => this.addSingleEntry(input));
+    const tasks = inputs?.map((input) => this.addSingleEntry(input)) ?? [];
+
+    await Promise.all(tasks);
 
     return this._queue.count;
   }
@@ -158,7 +160,7 @@ export class Downloader {
     /**
      * Check if file is already downloaded.
      */
-    if (this._rootPath && entry.save && this._checkFileValidity(entry)) {
+    if (this._rootPath && entry.save && await this._checkFileValidity(entry)) {
       return this._generateResult(entry, DownloadStatus.FileExists);
     }
 
@@ -321,7 +323,7 @@ export class Downloader {
    * @param entry The download entry.
    * @returns Whether the file is valid
    */
-  private _checkFileValidity(entry: DownloadEntry): boolean {
+  private async _checkFileValidity(entry: DownloadEntry): Promise<boolean> {
     /**
      * We don't want to check the files that already present in the list.
      */
@@ -336,14 +338,23 @@ export class Downloader {
 
     const filePath = this._getFilePath(entry);
 
-    if (!filePath || !fs.existsSync(filePath)) return false;
+    if (!filePath) return false;
 
-    const buffer = Buffer.alloc(17);
-    const fd = fs.openSync(filePath, 'r');
+    try {
+      const buffer = Buffer.alloc(20);
+      const fsPromise = fs.promises;
 
-    fs.readSync(fd, buffer, { length: 17 });
+      const file = await fsPromise.open(filePath, 'r');
 
-    return this._validateBuffer(buffer, entry.type);
+      // Read 21 bytes with possible 3 bytes of BOM.
+      await file.read(buffer, 0, 20);
+      await file.close();
+
+      return this._validateBuffer(buffer, entry.type);
+    }
+    catch {
+      return false;
+    }
   }
 
   /**
