@@ -8,7 +8,7 @@ export interface IDownloaderOptions {
   rootPath?: string;
 
   /**
-   * How many files per second will be downloaded. (0 - synchronous downloading).
+   * How many files per second will be downloaded. (0 - unlimited).
    */
-  filesPerSecond?: number;
+  filesPerSecond?: number | null;
 }

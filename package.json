@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "axios": "^0.26.1",
-    "limiter": "2.0.1",
+    "bottleneck": "^2.19.5",
     "md5": "^2.3.0"
   }
 }

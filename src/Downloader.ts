@@ -1,7 +1,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import * as limiter from 'limiter';
+import Bottleneck from 'bottleneck';
 import { Readable } from 'stream';
 
 import { DownloadingQueue } from './DownloadingQueue';
@@ -39,13 +39,7 @@ export class Downloader {
   /**
    * A rate limiter to prevent big amount of requests.
    */
-  protected _limiter: limiter.RateLimiter | null = null;
-
-  /**
-   * How many files can be downloaded in one second.
-   * (0 - synchronous downloading).
-   */
-  protected _filesPerSecond = 0;
+  protected _limiter: Bottleneck;
 
   /**
    * The number of the current downloading file.
@@ -59,26 +53,24 @@ export class Downloader {
 
   /**
    * @param rootPath A path for saving files.
-   * @param filesPerSecond How many files per second will be downloaded. (0 - synchronous downloading).
+   * @param filesPerSecond How many files per second will be downloaded. (0 - unlimited).
    * @constructor
    */
   constructor({ rootPath, filesPerSecond }: IDownloaderOptions) {
     if (typeof rootPath === 'string') {
       this._rootPath = path.normalize(rootPath);
 
-      if (!fs.existsSync(this._rootPath)) {
-        fs.mkdirSync(this._rootPath, { recursive: true });
-      }
+      fs.mkdirSync(this._rootPath, { recursive: true });
     }
 
-    this._filesPerSecond = filesPerSecond || 0;
-
-    if (this._filesPerSecond !== 0) {
-      this._limiter = new limiter.RateLimiter({
-        tokensPerInterval: this._filesPerSecond,
-        interval: 'second',
-      });
+    if (typeof filesPerSecond !== 'number' || filesPerSecond <= 0) {
+      filesPerSecond = null;
     }
+
+    this._limiter = new Bottleneck({
+      maxConcurrent: filesPerSecond,
+      minTime: 1000,
+    });
   }
 
   get progress(): number {
@@ -134,22 +126,26 @@ export class Downloader {
    */
   async downloadAll(): Promise<DownloadResult[]> {
     const results = [];
-    const isSynchronous = this._filesPerSecond === 0;
+    const count = this._queue.count;
 
-    while (!this._queue.isEmpty) {
-      results.push(isSynchronous ? await this.downloadSingle() : this.downloadSingle());
+    for (let i = 0; i < count; ++i) {
+      results.push(this.downloadSingle());
     }
 
     return Promise.all(results);
   }
 
   /**
-   * Downloads a single file from the queue. 
+   * Downloads a single file from the queue with expected rate limit. 
    * By default it saves all files on a disk and resulting buffer will be null.
    * If file is already exists or failed to write the buffer will also be null.
-   * @returns Download results.
+   * @returns Download result.
    */
   async downloadSingle(): Promise<DownloadResult> {
+    return this._limiter.schedule(() => this._download());
+  }
+
+  private async _download(): Promise<DownloadResult> {
     const entry = this._queue.dequeue();
 
     /**
@@ -213,10 +209,6 @@ export class Downloader {
      */
     if (this._checkAvailability(entry)) {
       this._processedEntries.add(entry.fileName);
-    }
-
-    if (this._limiter) {
-      await this._limiter.removeTokens(1);
     }
 
     const links = this._getRequestLinks(entry);
