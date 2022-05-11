@@ -18,8 +18,12 @@
   "keywords": [
     "osu",
     "beatmap",
+    "beatmapset",
+    "replay",
     "downloader",
-    ".osu"
+    ".osu",
+    ".osz",
+    ".osr"
   ],
   "author": "Kionell",
   "repository": {
