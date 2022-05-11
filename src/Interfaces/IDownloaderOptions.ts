@@ -14,7 +14,6 @@ export interface IDownloaderOptions {
 
   /**
    * Should file downloading be synchronous or not?
-   * It will overwrite files per second property.
    */
   synchronous?: boolean;
 }
