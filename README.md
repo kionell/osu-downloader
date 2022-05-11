@@ -33,7 +33,14 @@ import { Downloader, DownloadEntry } from 'osu-downloader'
 
 const downloader = new Downloader({
   rootPath: './cache', 
-  filesPerSecond: 0, // Unlimited downloading.
+  
+  /**
+   * Unlimited downloading.
+   * This is not safe as it may result to 429 error.
+   * You can also use fractional values (like 0.1, 0.2)
+   * if one second is too fast for your application. 
+   */
+  filesPerSecond: 0, 
 });
 
 const entry = new DownloadEntry({ id: 91 });
@@ -49,7 +56,8 @@ import { Downloader } from 'osu-downloader'
 
 const downloader = new Downloader({
   rootPath: './cache', 
-  filesPerSecond: 2,
+  filesPerSecond: 2, // Limit to 2 files per second.
+  synchronous: true, // Download each file one by one.
 });
 
 const entries = [
