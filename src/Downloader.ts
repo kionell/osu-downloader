@@ -62,13 +62,13 @@ export class Downloader {
       fs.mkdirSync(this._rootPath, { recursive: true });
     }
 
-    if (typeof filesPerSecond !== 'number' || filesPerSecond <= 0) {
-      filesPerSecond = null;
-    }
-
     this._limiter = new Bottleneck({
-      maxConcurrent: filesPerSecond,
-      minTime: 1000,
+      reservoir: 60,
+      reservoirRefreshAmount: 60,
+      reservoirRefreshInterval: 60 * 1000,
+      maxConcurrent: synchronous !== false ? 1 : null,
+      minTime: filesPerSecond
+        ? Math.max(0, 1000 / filesPerSecond) : 0,
     });
   }
 
