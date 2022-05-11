@@ -33,7 +33,7 @@ import { Downloader, DownloadEntry } from 'osu-downloader'
 
 const downloader = new Downloader({
   rootPath: './cache', 
-  filesPerSecond: 0, // Synchronous downloading.
+  filesPerSecond: 0, // Unlimited downloading.
 });
 
 const entry = new DownloadEntry({ id: 91 });
