@@ -52,11 +52,10 @@ export class Downloader {
   totalFiles = 0;
 
   /**
-   * @param rootPath A path for saving files.
-   * @param filesPerSecond How many files per second will be downloaded. (0 - unlimited).
+   * @param options Downloader options.
    * @constructor
    */
-  constructor({ rootPath, filesPerSecond }: IDownloaderOptions) {
+  constructor({ rootPath, filesPerSecond, synchronous }: IDownloaderOptions) {
     if (typeof rootPath === 'string') {
       this._rootPath = path.normalize(rootPath);
 
