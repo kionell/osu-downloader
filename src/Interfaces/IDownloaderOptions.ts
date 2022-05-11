@@ -10,5 +10,5 @@ export interface IDownloaderOptions {
   /**
    * How many files per second will be downloaded. (0 - unlimited).
    */
-  filesPerSecond?: number | null;
+  filesPerSecond?: number;
 }
