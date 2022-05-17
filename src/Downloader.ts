@@ -225,7 +225,11 @@ export class Downloader {
           },
         });
 
-        if (response.status === 200) return response.data;
+        const data = response.data as Readable;
+
+        if (response.status === 200 && data.readableLength > 0) {
+          return data;
+        }
       }
       catch {
         continue;
