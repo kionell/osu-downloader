@@ -1,0 +1,11 @@
+{
+  "entryPoints": ["./src/index.ts"],
+  "out": ["docs"],
+  "tsconfig": "./tsconfig.json",
+  "excludeExternals": true,
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "categorizeByGroup": false,
+  "hideGenerator": true
+}
