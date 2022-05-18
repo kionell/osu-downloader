@@ -1,8 +1,7 @@
 export enum DownloadStatus {
-  FailedToDownload = -3,
-  FailedToRead = -2,
-  FailedToWrite = -1,
-  AlreadyInProcess = 0,
+  FailedToDownload = -2,
+  FailedToRead = -1,
+  FailedToWrite = 0,
   FileExists = 1,
   Downloaded = 2,
   Written = 3,

@@ -113,7 +113,7 @@ await downloader.addMultipleEntries([
     type: DownloadType.Set;
   }),
 
-  /* Non-existent osu! beatmaps will return status code -3 (Failed to download) */
+  /* Non-existent osu! beatmaps will return status code -2 (Failed to download) */
   new DownloadEntry({
     id: 1337;
   }),
@@ -158,10 +158,9 @@ const results = await downloader.downloadAll();    // Rest of the files will be 
 
 ## Status Codes
 
-- -3 - File failed to download.
-- -2 - File failed to read.
-- -1 - File failed to write.
--  0 - Download is already in process via another entry,
+- -2 - File failed to download.
+- -1 - File failed to read.
+-  0 - File failed to write.
 -  1 - File already exists,
 -  2 - File downloaded successfuly.
 -  3 - Written on a disk.
