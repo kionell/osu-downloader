@@ -11,11 +11,17 @@ import { DownloadStatus } from './Enums/DownloadStatus';
 import { DownloadType } from './Enums/DownloadType';
 import { LinkGenerator } from './Utils/LinkGenerator';
 import { IDownloaderOptions } from './Interfaces/IDownloaderOptions';
+import { ProcessingMap } from './ProcessingMap';
 
 /**
  * A file downloader.
  */
 export class Downloader {
+  /**
+   * Mapping for the files that are currently being processed.
+   */
+  protected static _processed: ProcessingMap = new ProcessingMap();
+
   /**
    * The queue of downloading maps.
    */
@@ -25,11 +31,6 @@ export class Downloader {
    * List of valid files.
    */
   protected _validFiles: Set<string> = new Set();
-
-  /**
-   * List of entries that are currently being processed.
-   */
-  protected _processedEntries: Set<string> = new Set();
 
   /**
    * A root path for saving files.
@@ -79,6 +80,16 @@ export class Downloader {
   }
 
   /**
+   * Cancels current downloader work.
+   */
+  reset(): void {
+    this._queue.clear();
+    this._validFiles.clear();
+    this.currentFile = 0;
+    this.totalFiles = 0;
+  }
+
+  /**
    * Adds a single entry to the downloader's queue.
    * @param input ID or download entry.
    * @returns The number of entries in the queue.
@@ -88,10 +99,6 @@ export class Downloader {
 
     const entry = input instanceof DownloadEntry
       ? input : new DownloadEntry({ id: input });
-
-    if (entry.save && await this._checkFileValidity(entry)) {
-      this._validFiles.add(entry.fileName);
-    }
 
     this._queue.enqueue(entry);
 
@@ -127,9 +134,8 @@ export class Downloader {
    */
   async downloadAll(): Promise<DownloadResult[]> {
     const results = [];
-    const count = this._queue.count;
 
-    for (let i = 0; i < count; ++i) {
+    while (!this._queue.isEmpty) {
       results.push(this.downloadSingle());
     }
 
@@ -143,26 +149,44 @@ export class Downloader {
    * @returns Download result.
    */
   async downloadSingle(): Promise<DownloadResult> {
-    return this._limiter.schedule(() => this._download());
+    const entry = this._queue.dequeue();
+    const filePath = this._getFilePath(entry);
+
+    /** 
+     * Check if file is being processed through another entry.
+     * If this entry has file path and currently is being processed
+     * then we will return saved promise to its download result. 
+     */
+    if (filePath && Downloader._processed.has(filePath)) {
+      return Downloader._processed.get(filePath) as Promise<DownloadResult>;
+    }
+
+    /**
+     * Wrap this into async function to leave await 
+     * for the next iteration of the event loop.
+     */
+    const task = async() => {
+      if (await this._checkFileValidity(entry)) {
+        return this._generateResult(entry, DownloadStatus.FileExists);
+      }
+
+      return this._limiter.schedule(() => this._download(entry));
+    };
+
+    /**
+     * Now we can call this task and add it to the processing map immediately.
+     * This code below must be executed in the same iteration of the event loop!
+     */
+    const promise = task();
+
+    if (filePath) {
+      Downloader._processed.set(filePath, promise);
+    }
+
+    return promise;
   }
 
-  private async _download(): Promise<DownloadResult> {
-    const entry = this._queue.dequeue();
-
-    /**
-     * Check if file is being processed through another entry.
-     */
-    if (!this._checkAvailability(entry)) {
-      return this._generateResult(entry, DownloadStatus.AlreadyInProcess);
-    }
-
-    /**
-     * Check if file is already downloaded.
-     */
-    if (this._rootPath && entry.save && await this._checkFileValidity(entry)) {
-      return this._generateResult(entry, DownloadStatus.FileExists);
-    }
-
+  private async _download(entry: DownloadEntry): Promise<DownloadResult> {
     const readable = await this._requestFile(entry);
 
     if (!readable?.readable) {
@@ -189,29 +213,11 @@ export class Downloader {
   }
 
   /**
-   * Cancels the current downloader work.
-   */
-  reset(): void {
-    this._queue.clear();
-    this._validFiles.clear();
-    this._processedEntries.clear();
-    this.currentFile = 0;
-    this.totalFiles = 0;
-  }
-
-  /**
    * Requests a file from the download entry using the rate limiter.
    * @param entry A download entry.
    * @returns Readable stream.
    */
   private async _requestFile(entry: DownloadEntry): Promise<Readable | null> {
-    /**
-     * Block current file to prevent downloading from multiple entries.
-     */
-    if (this._checkAvailability(entry)) {
-      this._processedEntries.add(entry.fileName);
-    }
-
     const links = this._getRequestLinks(entry);
 
     for (const link of links) {
@@ -327,10 +333,14 @@ export class Downloader {
    * @returns Whether the file is valid
    */
   private async _checkFileValidity(entry: DownloadEntry): Promise<boolean> {
+    const filePath = this._getFilePath(entry);
+
+    if (!filePath) return false;
+
     /**
      * We don't want to check the files that already present in the list.
      */
-    if (this._validFiles.has(entry.fileName)) {
+    if (this._validFiles.has(filePath)) {
       return true;
     }
 
@@ -338,10 +348,6 @@ export class Downloader {
      * Invalidate file if it requires redownloading.
      */
     if (entry.redownload) return false;
-
-    const filePath = this._getFilePath(entry);
-
-    if (!filePath) return false;
 
     try {
       const buffer = Buffer.alloc(20);
@@ -381,14 +387,5 @@ export class Downloader {
     const string = buffer.slice(offset, 17 + offset).toString();
 
     return string.startsWith('osu file format v');
-  }
-
-  /**
-   * Checks if file is available to download from this entry.
-   * @param entry The download entry.
-   * @returns Whether the file is available to download
-   */
-  private _checkAvailability(entry: DownloadEntry): boolean {
-    return !this._processedEntries.has(entry.fileName);
   }
 }
