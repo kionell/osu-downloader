@@ -192,20 +192,17 @@ export class Downloader {
     }
 
     if (this._rootPath && entry.save) {
-      const isWritten = await this._tryToSaveFile(readable, entry);
-      const status = isWritten
-        ? DownloadStatus.Written
-        : DownloadStatus.FailedToWrite;
+      const status = await this._tryToSaveFile(readable, entry);
 
       return this._generateResult(entry, status);
     }
 
     const buffer = await this._tryToGetBuffer(readable);
 
-    const isValid = this._validateBuffer(buffer, entry.type);
+    const isValid = this._validateFileFormat(buffer, entry.type);
     const status = isValid
       ? DownloadStatus.Downloaded
-      : DownloadStatus.FailedToRead;
+      : DownloadStatus.WrongFileFormat;
 
     return this._generateResult(entry, status, buffer);
   }
@@ -229,10 +226,8 @@ export class Downloader {
           },
         });
 
-        const data = response.data as Readable;
-
-        if (response.status === 200 && data.readableLength > 0) {
-          return data;
+        if (response.status >= 200 && response.status < 300) {
+          return response.data;
         }
       }
       catch {
@@ -258,24 +253,40 @@ export class Downloader {
     }
   }
 
-  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry): Promise<boolean> {
+  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry): Promise<DownloadStatus> {
     const filePath = this._getFilePath(entry);
+    const fileType = entry.type;
 
-    if (!filePath) return false;
-
-    const writable = fs.createWriteStream(filePath);
+    if (!filePath) return DownloadStatus.FailedToWrite;
 
     return new Promise((res) => {
-      writable.on('error', () => res(false));
+      const writable = fs.createWriteStream(filePath);
 
-      writable.on('finish', () => {
-        res(writable.bytesWritten > 0);
+      readable.once('data', (chunk) => {
+        if (this._validateFileFormat(chunk, fileType)) return;
+
+        fs.unlink(filePath, () => res(DownloadStatus.WrongFileFormat));
 
         writable.close();
         readable.destroy();
       });
 
-      readable.pipe(writable);
+      readable.once('readable', () => {
+        writable.once('error', () => {
+          fs.unlink(filePath, () => res(DownloadStatus.FailedToWrite));
+        });
+
+        writable.once('finish', () => {
+          writable.bytesWritten > 0
+            ? res(DownloadStatus.Written)
+            : fs.unlink(filePath, () => res(DownloadStatus.EmptyFile));
+
+          writable.close();
+          readable.destroy();
+        });
+
+        readable.pipe(writable);
+      });
     });
   }
 
@@ -357,7 +368,7 @@ export class Downloader {
       await file.read(buffer, 0, 20);
       await file.close();
 
-      return this._validateBuffer(buffer, entry.type);
+      return this._validateFileFormat(buffer, entry.type);
     }
     catch {
       return false;
@@ -365,24 +376,24 @@ export class Downloader {
   }
 
   /**
-   * Checks if this buffer is valid or not.
-   * @param buffer Target buffer or null.
+   * Checks the specified chunk of the file and checks if the format is valid.
+   * @param chunk Target chunk or null.
    * @param type File type.
-   * @returns If this buffer valid or not.
+   * @returns If the file format is correct.
    */
-  private _validateBuffer(buffer: Buffer | null, type: DownloadType): boolean {
-    if (!buffer) return false;
+  private _validateFileFormat(chunk: Buffer | null, type: DownloadType): boolean {
+    if (!chunk) return false;
 
     if (type !== DownloadType.Beatmap) {
-      return buffer.length > 0;
+      return chunk.length > 0;
     }
 
-    if (buffer.length < 17) return false;
+    if (chunk.length < 17) return false;
 
-    const hasBOM = buffer[0] === 239 && buffer[1] === 187 && buffer[2] === 191;
+    const hasBOM = chunk[0] === 239 && chunk[1] === 187 && chunk[2] === 191;
     const offset = hasBOM ? 3 : 0;
 
-    const string = buffer.slice(offset, 17 + offset).toString();
+    const string = chunk.slice(offset, 17 + offset).toString();
 
     return string.startsWith('osu file format v');
   }
