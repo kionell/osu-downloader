@@ -271,22 +271,20 @@ export class Downloader {
         readable.destroy();
       });
 
-      readable.once('readable', () => {
-        writable.once('error', () => {
-          fs.unlink(filePath, () => res(DownloadStatus.FailedToWrite));
-        });
-
-        writable.once('finish', () => {
-          writable.bytesWritten > 0
-            ? res(DownloadStatus.Written)
-            : fs.unlink(filePath, () => res(DownloadStatus.EmptyFile));
-
-          writable.close();
-          readable.destroy();
-        });
-
-        readable.pipe(writable);
+      writable.once('error', () => {
+        fs.unlink(filePath, () => res(DownloadStatus.FailedToWrite));
       });
+
+      writable.once('finish', () => {
+        writable.bytesWritten > 0
+          ? res(DownloadStatus.Written)
+          : fs.unlink(filePath, () => res(DownloadStatus.EmptyFile));
+
+        writable.close();
+        readable.destroy();
+      });
+
+      readable.pipe(writable);
     });
   }
 
