@@ -3,6 +3,7 @@ import fs from 'fs';
 
 import { DownloadEntry } from './DownloadEntry';
 import { DownloadStatus } from './Enums/DownloadStatus';
+import { formatDownloadStatus } from './Utils';
 
 /**
  * A result of downloading a beatmap.
@@ -30,6 +31,11 @@ export class DownloadResult {
   status: DownloadStatus;
 
   /**
+   * Readable download status.
+   */
+  statusText: string;
+
+  /**
    * The name of a downloaded file.
    */
   fileName: string;
@@ -52,6 +58,7 @@ export class DownloadResult {
 
     this.buffer = buffer;
     this.status = status;
+    this.statusText = formatDownloadStatus(status);
     this.fileName = entry.fileName;
 
     if (rootPath) {
