@@ -45,7 +45,8 @@ const downloader = new Downloader({
 
 const entry = new DownloadEntry({ id: 91 });
 
-await downloader.addSingleEntry(entry);
+downloader.addSingleEntry(entry);
+
 await downloader.downloadSingle();
 ```
 
@@ -67,7 +68,7 @@ const entries = [
   new DownloadEntry({ id: 1626530 }),
 ];
 
-await downloader.addMultipleEntries(entries);
+downloader.addMultipleEntries(entries);
 
 await downloader.downloadSingle(); // First file will be downloaded.
 await downloader.downloadSingle(); // Second file will be downloaded.
@@ -87,7 +88,7 @@ const downloader = new Downloader({
 /**
  * Adds a new entry for .osu file to the download query.
  */
-await downloader.addSingleEntry(new DownloadEntry({
+downloader.addSingleEntry(new DownloadEntry({
   id: '91',
   save: false // Don't save file on a disk.
 }));
@@ -95,7 +96,7 @@ await downloader.addSingleEntry(new DownloadEntry({
 /**
  * Adds a new entry for .osz file to the download query.
  */
-await downloader.addSingleEntry(new DownloadEntry({
+downloader.addSingleEntry(new DownloadEntry({
   id: 3;
   customName: 'myfavouritebeatmapset.osz';
   type: DownloadType.Set;
@@ -106,14 +107,14 @@ await downloader.addSingleEntry(new DownloadEntry({
  * Adds multiple entries to the download query.
  * You can combine different styles of writing and file types.
  */
-await downloader.addMultipleEntries([
+downloader.addMultipleEntries([
   /* Beatmapset with ID 773801. */
   new DownloadEntry({
     id: 773801;
     type: DownloadType.Set;
   }),
 
-  /* Non-existent osu! beatmaps will return status code -2 (Failed to download) */
+  /* Non-existent osu! beatmaps will return status code -3 (Failed to download) */
   new DownloadEntry({
     id: 1337;
   }),
@@ -158,9 +159,10 @@ const results = await downloader.downloadAll();    // Rest of the files will be 
 
 ## Status Codes
 
-- -2 - File failed to download.
-- -1 - File failed to read.
--  0 - File failed to write.
+- -3 - File failed to download.
+- -2 - Wrong file format.
+- -1 - File failed to write.
+-  0 - Empty file.
 -  1 - File already exists,
 -  2 - File downloaded successfuly.
 -  3 - Written on a disk.
