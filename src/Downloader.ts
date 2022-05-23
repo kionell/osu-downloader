@@ -94,7 +94,7 @@ export class Downloader {
    * @param input ID or download entry.
    * @returns The number of entries in the queue.
    */
-  async addSingleEntry(input: string | number | DownloadEntry): Promise<number> {
+  addSingleEntry(input: string | number | DownloadEntry): number {
     if (this._queue.isEmpty) this.reset();
 
     const entry = input instanceof DownloadEntry
@@ -112,16 +112,14 @@ export class Downloader {
    * @param inputs The entries to be added.
    * @returns The number of entries in the queue.
    */
-  async addMultipleEntries(inputs: (string | number | DownloadEntry)[]): Promise<number> {
+  addMultipleEntries(inputs: (string | number | DownloadEntry)[]): number {
     if (this._queue.isEmpty) this.reset();
 
     if (!Array.isArray(inputs)) {
       return this._queue.count;
     }
 
-    const tasks = inputs?.map((input) => this.addSingleEntry(input)) ?? [];
-
-    await Promise.all(tasks);
+    inputs?.map((input) => this.addSingleEntry(input)) ?? [];
 
     return this._queue.count;
   }
