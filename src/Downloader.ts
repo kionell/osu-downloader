@@ -2,6 +2,7 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import Bottleneck from 'bottleneck';
+import SparkMD5 from 'spark-md5';
 import { Readable } from 'stream';
 
 import { DownloadingQueue } from './DownloadingQueue';
@@ -11,6 +12,7 @@ import { DownloadStatus } from './Enums/DownloadStatus';
 import { DownloadType } from './Enums/DownloadType';
 import { LinkGenerator } from './Utils/LinkGenerator';
 import { IDownloaderOptions } from './Interfaces/IDownloaderOptions';
+import { IDownloadResultOptions } from './Interfaces/IDownloadResultOptions';
 import { ProcessingMap } from './ProcessingMap';
 
 /**
@@ -159,7 +161,10 @@ export class Downloader {
      */
     const task = async() => {
       if (await this._checkFileValidity(entry)) {
-        return this._generateResult(entry, DownloadStatus.FileExists);
+        return this._generateResult({
+          status: DownloadStatus.FileExists,
+          entry,
+        });
       }
 
       return this._limiter.schedule(() => this._download(entry));
@@ -180,13 +185,21 @@ export class Downloader {
     const readable = await this._requestFile(entry);
 
     if (!readable?.readable) {
-      return this._generateResult(entry, DownloadStatus.FailedToDownload);
+      return this._generateResult({
+        status: DownloadStatus.FailedToDownload,
+        entry,
+      });
     }
 
     if (this._rootPath && entry.save) {
-      const status = await this._tryToSaveFile(readable, entry);
+      const md5 = new SparkMD5.ArrayBuffer();
+      const status = await this._tryToSaveFile(readable, entry, md5);
 
-      return this._generateResult(entry, status);
+      return this._generateResult({
+        md5: md5.end(),
+        entry,
+        status,
+      });
     }
 
     const buffer = await this._getBufferOrNull(readable);
@@ -196,7 +209,7 @@ export class Downloader {
       ? DownloadStatus.Downloaded
       : DownloadStatus.WrongFileFormat;
 
-    return this._generateResult(entry, status, buffer);
+    return this._generateResult({ entry, status, buffer });
   }
 
   /**
@@ -230,23 +243,15 @@ export class Downloader {
     return null;
   }
 
-  private async _tryToGetBuffer(readable: Readable): Promise<Buffer | null> {
-    const chunks = [];
-
-    try {
-      for await (const chunk of readable) {
-        chunks.push(chunk);
-      }
-
-      return Buffer.concat(chunks);
-    }
-    catch {
-      return null;
-    }
-  }
-
-  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry): Promise<DownloadStatus> {
-    const filePath = this._getFilePath(entry);
+  /**
+   * Tries to save file data on a disk and writes it hash
+   * @param readable Readable stream.
+   * @param entry Current download entry.
+   * @param md5 MD5 incremental algorithm.
+   * @returns Status of downloading.
+   */
+  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry, md5: SparkMD5.ArrayBuffer): Promise<DownloadStatus> {
+    const savePath = this._getSavePath(entry);
     const fileType = entry.type;
 
     if (!savePath) return DownloadStatus.FailedToWrite;
@@ -254,10 +259,16 @@ export class Downloader {
     return new Promise((res) => {
       const writable = fs.createWriteStream(savePath);
 
-      readable.once('data', (chunk) => {
-        if (this._validateFileFormat(chunk, fileType)) return;
+      // Check first chunk of the stream to validate file format.
+      readable.once('data', (chunk: Buffer) => {
+        if (this._validateFileFormat(chunk, fileType)) {
+          // Attach new event listener to write MD5 hash.
+          readable.on('data', md5.append);
 
-        fs.unlink(filePath, () => res(DownloadStatus.WrongFileFormat));
+          return md5.append(chunk);
+        }
+
+        fs.unlink(savePath, () => res(DownloadStatus.WrongFileFormat));
 
         writable.close();
         readable.destroy();
@@ -281,17 +292,41 @@ export class Downloader {
   }
 
   /**
+   * Tries to get buffer from a stream or file path.
+   * @param readable Readable stream.
+   * @returns Buffer or null.
+   */
+  private async _getBufferOrNull(readable: Readable): Promise<Buffer | null> {
+    try {
+      const chunks = [];
+
+      for await (const chunk of readable) {
+        chunks.push(chunk);
+      }
+
+      return Buffer.concat(chunks);
+    }
+    catch {
+      return null;
+    }
+  }
+
+  /**
    * Generates a new download result.
-   * @param entry Current download entry.
-   * @param status Status of a download result.
-   * @param data File data or null.
+   * @param options Download result options.
    * @returns Download result.
    */
-  private _generateResult(entry: DownloadEntry, status: DownloadStatus, data: Buffer | null = null): DownloadResult {
+  private async _generateResult(options: IDownloadResultOptions): Promise<DownloadResult> {
     // Increment current file counter.
     this.currentFile++;
 
-    return new DownloadResult(entry, status, data, this._rootPath);
+    if (options.buffer && !options.md5) {
+      options.md5 = SparkMD5.ArrayBuffer.hash(options.buffer);
+    }
+
+    options.rootPath = this._rootPath;
+
+    return new DownloadResult(options);
   }
 
   /**
