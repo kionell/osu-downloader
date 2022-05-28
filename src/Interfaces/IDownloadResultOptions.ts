@@ -16,17 +16,17 @@ export interface IDownloadResultOptions {
   status: DownloadStatus;
 
   /**
+   * MD5 hash of a file or buffer.
+   */
+  md5?: string;
+
+  /**
    * This buffer will store file data if file will be downloaded successfuly.
    */
   buffer?: Buffer | null;
 
   /**
-   * The name of a downloaded file.
+   * Root path of the downloader.
    */
-  fileName?: string;
-
-  /**
-   * The path of a downloaded file.
-   */
-  filePath?: string;
+  rootPath?: string | null;
 }

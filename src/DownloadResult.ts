@@ -1,8 +1,6 @@
-import path from 'path';
-import fs from 'fs';
-
-import { DownloadEntry } from './DownloadEntry';
+import { resolve } from 'path';
 import { DownloadStatus } from './Enums/DownloadStatus';
+import { IDownloadResultOptions } from './Interfaces/IDownloadResultOptions';
 import { formatDownloadStatus } from './Utils';
 
 /**
@@ -38,7 +36,7 @@ export class DownloadResult {
   /**
    * The name of a downloaded file.
    */
-  fileName: string;
+  fileName: string | null = null;
 
   /**
    * The path of a downloaded file.
@@ -46,24 +44,34 @@ export class DownloadResult {
   filePath: string | null = null;
 
   /**
-   * @param entry A download entry.
-   * @param buffer File data or null
-   * @param status The download status.
-   * @param rootPath The root path to the file folder.
+   * MD5 hash of a file or buffer.
+   */
+  md5: string | null = null;
+
+  /**
+   * @param options Download result options.
    * @constructor
    */
-  constructor(entry: DownloadEntry, status: DownloadStatus, buffer: Buffer | null, rootPath: string | null) {
+  constructor(options: IDownloadResultOptions) {
+    const { entry, status, md5, buffer, rootPath } = options;
+
     if (entry.id) this.id = entry.id;
     if (entry.url) this.url = entry.url;
 
-    this.buffer = buffer;
     this.status = status;
     this.statusText = formatDownloadStatus(status);
     this.fileName = entry.fileName;
 
-    if (rootPath) {
-      this.filePath = path.resolve(rootPath, entry.fileName);
+    if (!this.fileName && md5) {
+      this.fileName = md5 + '.' + entry.fileExtension;
     }
+
+    if (rootPath && this.fileName) {
+      this.filePath = resolve(rootPath, this.fileName);
+    }
+
+    this.buffer = buffer ?? null;
+    this.md5 = md5 ?? null;
   }
 
   /**
@@ -77,15 +85,6 @@ export class DownloadResult {
    * Do file exists or not?
    */
   get fileExists(): boolean {
-    if (this.buffer && this.buffer.length > 0) return true;
-
-    return !!this.filePath && fs.existsSync(this.filePath);
-  }
-
-  /**
-   * Whether the file was deleted or not.
-   */
-  get isDeleted(): boolean {
-    return this.isSuccessful && !this.fileExists;
+    return !!this.filePath || !!this.buffer?.length;
   }
 }
