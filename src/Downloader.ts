@@ -142,15 +142,15 @@ export class Downloader {
    */
   async downloadSingle(): Promise<DownloadResult> {
     const entry = this._queue.dequeue();
-    const filePath = this._getFilePath(entry);
+    const taskId = this._getSavePath(entry);
 
     /** 
      * Check if file is being processed through another entry.
      * If this entry has file path and currently is being processed
      * then we will return saved promise to its download result. 
      */
-    if (filePath && Downloader._processed.has(filePath)) {
-      return Downloader._processed.get(filePath) as Promise<DownloadResult>;
+    if (taskId && Downloader._processed.has(taskId)) {
+      return Downloader._processed.get(taskId) as Promise<DownloadResult>;
     }
 
     /**
@@ -171,9 +171,7 @@ export class Downloader {
      */
     const promise = task();
 
-    if (filePath) {
-      Downloader._processed.set(filePath, promise);
-    }
+    if (taskId) Downloader._processed.set(taskId, promise);
 
     return promise;
   }
@@ -191,7 +189,7 @@ export class Downloader {
       return this._generateResult(entry, status);
     }
 
-    const buffer = await this._tryToGetBuffer(readable);
+    const buffer = await this._getBufferOrNull(readable);
 
     const isValid = this._validateFileFormat(buffer, entry.type);
     const status = isValid
@@ -251,10 +249,10 @@ export class Downloader {
     const filePath = this._getFilePath(entry);
     const fileType = entry.type;
 
-    if (!filePath) return DownloadStatus.FailedToWrite;
+    if (!savePath) return DownloadStatus.FailedToWrite;
 
     return new Promise((res) => {
-      const writable = fs.createWriteStream(filePath);
+      const writable = fs.createWriteStream(savePath);
 
       readable.once('data', (chunk) => {
         if (this._validateFileFormat(chunk, fileType)) return;
@@ -266,13 +264,13 @@ export class Downloader {
       });
 
       writable.once('error', () => {
-        fs.unlink(filePath, () => res(DownloadStatus.FailedToWrite));
+        fs.unlink(savePath, () => res(DownloadStatus.FailedToWrite));
       });
 
       writable.once('finish', () => {
         writable.bytesWritten > 0
           ? res(DownloadStatus.Written)
-          : fs.unlink(filePath, () => res(DownloadStatus.EmptyFile));
+          : fs.unlink(savePath, () => res(DownloadStatus.EmptyFile));
 
         writable.close();
         readable.destroy();
@@ -318,12 +316,12 @@ export class Downloader {
   }
 
   /**
-   * Generates absolute file path to the downloaded file.
+   * Generates a path to the downloaded file.
    * @param entry A download entry.
-   * @returns Absolute file path.
+   * @returns Generated file path.
    */
-  private _getFilePath(entry: DownloadEntry): string | null {
-    if (!this._rootPath) return null;
+  private _getSavePath(entry: DownloadEntry): string | null {
+    if (!this._rootPath || !entry.fileName) return null;
 
     return path.join(this._rootPath, entry.fileName);
   }
@@ -334,9 +332,9 @@ export class Downloader {
    * @returns Whether the file is valid
    */
   private async _checkFileValidity(entry: DownloadEntry): Promise<boolean> {
-    const filePath = this._getFilePath(entry);
+    const savePath = this._getSavePath(entry);
 
-    if (!filePath) return false;
+    if (!savePath) return false;
 
     /**
      * Invalidate file if it requires redownloading.
@@ -347,7 +345,7 @@ export class Downloader {
       const buffer = Buffer.alloc(20);
       const fsPromise = fs.promises;
 
-      const file = await fsPromise.open(filePath, 'r');
+      const file = await fsPromise.open(savePath, 'r');
 
       // Read 21 bytes with possible 3 bytes of BOM.
       await file.read(buffer, 0, 20);
