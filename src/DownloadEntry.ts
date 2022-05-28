@@ -1,4 +1,3 @@
-import md5 from 'md5';
 import { DownloadType } from './Enums/DownloadType';
 import { IDownloadEntryOptions } from './Interfaces/IDownloadEntryOptions';
 
@@ -56,12 +55,11 @@ export class DownloadEntry {
     return this.type === DownloadType.Set;
   }
 
-  get file(): string {
+  get file(): string | null {
     if (this.customName) return this.customName;
     if (this.id) return this.id.toString();
-    if (this.url) return md5(this.url);
 
-    return 'file';
+    return null;
   }
 
   get fileExtension(): string {
@@ -73,7 +71,9 @@ export class DownloadEntry {
     return 'osu';
   }
 
-  get fileName(): string {
+  get fileName(): string | null {
+    if (!this.file) return null;
+
     return `${this.file}.${this.fileExtension}`;
   }
 }
