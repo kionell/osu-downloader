@@ -28,11 +28,6 @@ export class Downloader {
   protected _queue: DownloadingQueue = new DownloadingQueue();
 
   /**
-   * List of valid files.
-   */
-  protected _validFiles: Set<string> = new Set();
-
-  /**
    * A root path for saving files.
    */
   protected _rootPath: string | null = null;
@@ -84,7 +79,6 @@ export class Downloader {
    */
   reset(): void {
     this._queue.clear();
-    this._validFiles.clear();
     this.currentFile = 0;
     this.totalFiles = 0;
   }
@@ -343,13 +337,6 @@ export class Downloader {
     const filePath = this._getFilePath(entry);
 
     if (!filePath) return false;
-
-    /**
-     * We don't want to check the files that already present in the list.
-     */
-    if (this._validFiles.has(filePath)) {
-      return true;
-    }
 
     /**
      * Invalidate file if it requires redownloading.
