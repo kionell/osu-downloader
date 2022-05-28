@@ -71,7 +71,7 @@ export class DownloadResult {
     }
 
     this.buffer = buffer ?? null;
-    this.md5 = md5 ?? null;
+    this.md5 = this.isSuccessful && md5 ? md5 : null;
   }
 
   /**
