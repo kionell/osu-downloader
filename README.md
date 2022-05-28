@@ -24,7 +24,7 @@ npm install osu-downloader
 
 ### Requirements
 
-Since this project uses ES Modules, it is recommended to use Node.js 12.22.0 or newer.
+Since this project uses ES Modules and highly relies on file system operations, it is recommended to use Node.js 12.22.0 or newer.
 
 ## Basic example of single file downloading
 
@@ -40,12 +40,10 @@ const downloader = new Downloader({
    * You can also use fractional values (like 0.1, 0.2)
    * if one second is too fast for your application. 
    */
-  filesPerSecond: 0, 
+  filesPerSecond: 0,
 });
 
-const entry = new DownloadEntry({ id: 91 });
-
-downloader.addSingleEntry(entry);
+downloader.addSingleEntry(91);
 
 await downloader.downloadSingle();
 ```
@@ -63,9 +61,9 @@ const downloader = new Downloader({
 
 const entries = [
   new DownloadEntry({ id: '91' }),
-  new DownloadEntry({ id: '335628' }),
   new DownloadEntry({ id: 1228616 }),
-  new DownloadEntry({ id: 1626530 }),
+  '335628',
+  1626530,
 ];
 
 downloader.addMultipleEntries(entries);
@@ -90,17 +88,17 @@ const downloader = new Downloader({
  */
 downloader.addSingleEntry(new DownloadEntry({
   id: '91',
-  save: false // Don't save file on a disk.
+  save: false, // Don't save file on a disk.
 }));
 
 /**
  * Adds a new entry for .osz file to the download query.
  */
 downloader.addSingleEntry(new DownloadEntry({
-  id: 3;
-  customName: 'myfavouritebeatmapset.osz';
-  type: DownloadType.Set;
-  redownload: true;
+  id: 3,
+  customName: 'myfavouritebeatmapset.osz',
+  type: DownloadType.Set,
+  redownload: true,
 }));
 
 /**
@@ -171,7 +169,7 @@ const results = await downloader.downloadAll();    // Rest of the files will be 
 
 - 0 - osu! beatmap (.osu file format).
 - 1 - osu! beatmapset (.osz file format).
-- 2 - osu! replay  (.osr file format).
+- 2 - osu! replay (.osr file format).
 
 ## Documentation
 
