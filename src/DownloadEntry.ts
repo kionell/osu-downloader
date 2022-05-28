@@ -1,3 +1,4 @@
+import SparkMD5 from 'spark-md5';
 import { DownloadType } from './Enums/DownloadType';
 import { IDownloadEntryOptions } from './Interfaces/IDownloadEntryOptions';
 
@@ -38,6 +39,11 @@ export class DownloadEntry {
   save = true;
 
   /**
+   * Temporary file name for downloading.
+   */
+  private _file?: string;
+
+  /**
    * Creates a new download entry.
    * @param options Download entry options.
    * @constructor
@@ -49,6 +55,14 @@ export class DownloadEntry {
     this.type = options?.type ?? this.type;
     this.redownload = options?.redownload ?? this.redownload;
     this.save = options?.save ?? this.save;
+
+    if (typeof this.id === 'string' || typeof this.id === 'number') {
+      this._file = this.id.toString();
+    }
+
+    if (!this._file && typeof this.url === 'string') {
+      this._file = SparkMD5.hash(this.url);
+    }
   }
 
   get isArchive(): boolean {
@@ -56,10 +70,7 @@ export class DownloadEntry {
   }
 
   get file(): string | null {
-    if (this.customName) return this.customName;
-    if (this.id) return this.id.toString();
-
-    return null;
+    return this.customName ?? this._file ?? null;
   }
 
   get fileExtension(): string {
