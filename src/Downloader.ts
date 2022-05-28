@@ -263,7 +263,9 @@ export class Downloader {
       readable.once('data', (chunk: Buffer) => {
         if (this._validateFileFormat(chunk, fileType)) {
           // Attach new event listener to write MD5 hash.
-          readable.on('data', md5.append);
+          readable.on('data', (chunk: Buffer) => {
+            return md5.append(chunk);
+          });
 
           return md5.append(chunk);
         }
@@ -372,9 +374,9 @@ export class Downloader {
     if (!savePath) return false;
 
     /**
-     * Invalidate file if it requires redownloading.
+     * Invalidate file if it doesn't require saving or requires redownloading.
      */
-    if (entry.redownload) return false;
+    if (!entry.save || entry.redownload) return false;
 
     try {
       const buffer = Buffer.alloc(20);
