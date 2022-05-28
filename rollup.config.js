@@ -6,7 +6,9 @@ import dts from 'rollup-plugin-dts';
 export default [
   {
     plugins: [
-      typescript(),
+      typescript({
+        removeComments: true,
+      }),
       externals({
         deps: true,
       }),
@@ -22,7 +24,9 @@ export default [
   },
   {
     plugins: [
-      typescript(),
+      typescript({
+        removeComments: true,
+      }),
       externals({
         deps: true,
       }),
