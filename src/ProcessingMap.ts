@@ -5,18 +5,18 @@ import { DownloadResult } from './DownloadResult';
  */
 export class ProcessingMap extends Map<string, Promise<DownloadResult>> {
   /**
-   * Adds a new element to the cache. Removes it after a certain time if needed.
-   * @param filePath The key that will be used to identify this response.
-   * @param promise The response value.
-   * @returns Reference to this cache.
+   * Adds a new element to the map.
+   * @param taskId Task ID that used to identify current entry.
+   * @param promise Promise with download result.
+   * @returns Reference to this map.
    */
-  set(filePath: string, promise: Promise<DownloadResult>): this {
-    super.set(filePath, promise);
+  set(taskId: string, promise: Promise<DownloadResult>): this {
+    super.set(taskId, promise);
 
     /**
      * Delete promise after resolve or reject.
      */
-    Promise.resolve(promise).then(() => super.delete(filePath));
+    Promise.resolve(promise).then(() => super.delete(taskId));
 
     return this;
   }
