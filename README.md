@@ -24,7 +24,7 @@ npm install osu-downloader
 
 ### Requirements
 
-Since this project uses ES Modules and highly relies on file system operations, it is recommended to use Node.js 12.22.0 or newer.
+This project relies on file system operations so it doesn't support browser environment. You need to use Node.js or rewrite it to support browser API by yourself.
 
 ## Basic example of single file downloading
 
