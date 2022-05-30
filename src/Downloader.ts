@@ -322,13 +322,44 @@ export class Downloader {
     // Increment current file counter.
     this.currentFile++;
 
-    if (options.buffer && !options.md5) {
-      options.md5 = SparkMD5.ArrayBuffer.hash(options.buffer);
-    }
-
+    options.md5 ??= await this._getMD5Hash(options);
     options.rootPath = this._rootPath;
 
     return new DownloadResult(options);
+  }
+
+  /**
+   * Tries to get MD5 of already downloaded file.
+   * @param options Download result options.
+   * @returns MD5 hash of downloaded file or null.
+   */
+  private async _getMD5Hash(options: IDownloadResultOptions): Promise<string | null> {
+    if (options.md5) return options.md5;
+
+    if (options.buffer) {
+      return SparkMD5.ArrayBuffer.hash(options.buffer);
+    }
+
+    const sparkMD5 = new SparkMD5.ArrayBuffer();
+    const filePath = this._getSavePath(options.entry);
+
+    if (!filePath) return null;
+
+    const readable = fs.createReadStream(filePath);
+
+    return new Promise((res) => {
+      readable.on('error', () => res(null));
+
+      readable.on('readable', () => {
+        let chunk;
+
+        while (null !== (chunk = readable.read())) {
+          sparkMD5.append(chunk);
+        }
+
+        res(sparkMD5.end());
+      });
+    });
   }
 
   /**
