@@ -39,11 +39,6 @@ export class DownloadEntry {
   save = true;
 
   /**
-   * Temporary file name for downloading.
-   */
-  private _file?: string;
-
-  /**
    * Creates a new download entry.
    * @param options Download entry options.
    * @constructor
@@ -55,14 +50,6 @@ export class DownloadEntry {
     this.type = options?.type ?? this.type;
     this.redownload = options?.redownload ?? this.redownload;
     this.save = options?.save ?? this.save;
-
-    if (typeof this.id === 'string' || typeof this.id === 'number') {
-      this._file = this.id.toString();
-    }
-
-    if (!this._file && typeof this.url === 'string') {
-      this._file = SparkMD5.hash(this.url);
-    }
   }
 
   get isArchive(): boolean {
@@ -70,7 +57,22 @@ export class DownloadEntry {
   }
 
   get file(): string | null {
-    return this.customName ?? this._file ?? null;
+    if (typeof this.customName === 'string') {
+      if (this.customName.length > 0) return this.customName;
+    }
+
+    const hasStringId = typeof this.id === 'string' && this.id;
+    const hasNumberId = typeof this.id === 'number' && this.id > 0;
+
+    if (hasStringId || hasNumberId) {
+      return (this.id as number).toString();
+    }
+
+    if (typeof this.url === 'string') {
+      if (this.url.length > 0) return SparkMD5.hash(this.url);
+    }
+
+    return null;
   }
 
   get fileExtension(): string {
