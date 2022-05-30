@@ -1,6 +1,6 @@
 {
   "name": "osu-downloader",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "A tool for downloading osu! beatmaps and beatmapsets.",
   "exports": {
     "import": "./lib/index.mjs",
