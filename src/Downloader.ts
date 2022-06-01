@@ -192,11 +192,14 @@ export class Downloader {
     }
 
     if (this._rootPath && entry.save) {
-      const md5 = new SparkMD5.ArrayBuffer();
-      const status = await this._tryToSaveFile(readable, entry, md5);
+      const sparkMD5 = new SparkMD5.ArrayBuffer();
+      const status = await this._tryToSaveFile(readable, entry, sparkMD5);
+      const md5 = sparkMD5.end();
+
+      sparkMD5.destroy();
 
       return this._generateResult({
-        md5: md5.end(),
+        md5,
         entry,
         status,
       });
@@ -322,10 +325,15 @@ export class Downloader {
     // Increment current file counter.
     this.currentFile++;
 
-    options.md5 ??= await this._getMD5Hash(options);
-    options.rootPath = this._rootPath;
+    try {
+      options.md5 ??= await this._getMD5Hash(options);
+      options.rootPath = this._rootPath;
 
-    return new DownloadResult(options);
+      return new DownloadResult(options);
+    }
+    catch {
+      return new DownloadResult(options);
+    }
   }
 
   /**
@@ -345,19 +353,58 @@ export class Downloader {
 
     if (!filePath) return null;
 
-    const readable = fs.createReadStream(filePath);
+    for await (const chunk of this._generateChunks(filePath)) {
+      sparkMD5.append(chunk);
+    }
 
-    return new Promise((res) => {
-      readable.on('error', () => res(null));
+    const md5 = sparkMD5.end();
 
-      readable.on('readable', () => {
-        let chunk;
+    sparkMD5.destroy();
 
-        while (null !== (chunk = readable.read())) {
-          sparkMD5.append(chunk);
-        }
+    return md5;
+  }
 
-        res(sparkMD5.end());
+  /**
+   * Generates file chunks using shared buffer and async generator.
+   * @param filePath File path.
+   * @returns Shared buffer generator.
+   */
+  private async *_generateChunks(filePath: string): AsyncGenerator<Buffer> {
+    const stats = fs.statSync(filePath);
+    const fd = fs.openSync(filePath, 'r');
+
+    const chunkSize = 1024 * 1024; // 1 MB
+    const totalChunks = Math.ceil(stats.size / chunkSize);
+
+    const sharedBuffer = Buffer.alloc(chunkSize);
+
+    let bytesRead = 0;
+    let end = chunkSize;
+
+    for (let i = 0; i < totalChunks; i++) {
+      await this.readBytes(fd, sharedBuffer);
+
+      bytesRead = (i + 1) * chunkSize;
+
+      if (bytesRead > stats.size) {
+        end = chunkSize - (bytesRead - stats.size);
+      }
+
+      yield sharedBuffer.slice(0, end);
+    }
+  }
+
+  /**
+   * Reads bytes from file to shared buffer. 
+   * This function is here, because fs.promises variant of file reading 
+   * doesn't actually work with async generators (???).
+   * @param fd File descriptor.
+   * @param sharedBuffer Shared buffer for less RAM usage.
+   */
+  readBytes(fd: number, sharedBuffer: Buffer): Promise<void> {
+    return new Promise((res, rej) => {
+      fs.read(fd, sharedBuffer, 0, sharedBuffer.length, null, (err) => {
+        return err ? rej(err) : res();
       });
     });
   }
