@@ -4,7 +4,7 @@ import { IDownloadResultOptions } from './Interfaces/IDownloadResultOptions';
 import { formatDownloadStatus } from './Utils';
 
 /**
- * A result of downloading a beatmap.
+ * A result of file downloading.
  */
 export class DownloadResult {
   /**
@@ -13,12 +13,12 @@ export class DownloadResult {
   id?: string | number;
 
   /**
-   * Custom URL which was processed.
+   * URL that was used to download a file.
    */
   url?: string;
 
   /**
-   * This buffer will store file data in case 
+   * The buffer to store the file data in case 
    * if the user decides not to save it on a disk.
    */
   buffer: Buffer | null;
