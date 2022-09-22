@@ -261,23 +261,33 @@ export class Downloader {
 
     return new Promise((res) => {
       const writable = fs.createWriteStream(savePath);
+      let firstChunk = Buffer.from([]);
 
-      // Check first chunk of the stream to validate file format.
-      readable.once('data', (chunk: Buffer) => {
-        if (this._validateFileFormat(chunk, fileType)) {
+      // Check first 24 bytes of the stream to validate file format.
+      const firstChunkListener = (chunk: Buffer) => {
+        firstChunk = Buffer.concat([firstChunk, chunk], firstChunk.length + chunk.length);
+
+        if (firstChunk.length < 24) return;
+
+        if (this._validateFileFormat(firstChunk, fileType)) {
+          // Dettach current listener as we already collected first 24 bytes.
+          readable.off('data', firstChunkListener);
+
           // Attach new event listener to write MD5 hash.
           readable.on('data', (chunk: Buffer) => {
             return md5.append(chunk);
           });
 
-          return md5.append(chunk);
+          return md5.append(firstChunk);
         }
 
         fs.unlink(savePath, () => res(DownloadStatus.WrongFileFormat));
 
         writable.close();
         readable.destroy();
-      });
+      };
+
+      readable.on('data', firstChunkListener);
 
       writable.once('error', () => {
         fs.unlink(savePath, () => res(DownloadStatus.FailedToWrite));
