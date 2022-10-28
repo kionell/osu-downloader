@@ -56,8 +56,6 @@ export class Downloader {
   constructor({ rootPath, filesPerSecond, synchronous }: IDownloaderOptions) {
     if (typeof rootPath === 'string') {
       this._rootPath = path.normalize(rootPath);
-
-      fs.mkdirSync(this._rootPath, { recursive: true });
     }
 
     this._limiter = new Bottleneck({
@@ -257,7 +255,12 @@ export class Downloader {
     const savePath = this._getSavePath(entry);
     const fileType = entry.type;
 
-    if (!savePath) return DownloadStatus.FailedToWrite;
+    if (!this._rootPath || !savePath) {
+      return DownloadStatus.FailedToWrite;
+    }
+
+    // Create dir for cache files before saving.
+    await fs.mkdir(this._rootPath, { recursive: true });
 
     return new Promise((res) => {
       const writable = fs.createWriteStream(savePath);
