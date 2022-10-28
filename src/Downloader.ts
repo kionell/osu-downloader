@@ -1,5 +1,9 @@
 import axios from 'axios';
-import fs from 'fs';
+import {
+  createWriteStream,
+  promises as fs,
+} from 'fs';
+
 import path from 'path';
 import Bottleneck from 'bottleneck';
 import SparkMD5 from 'spark-md5';
@@ -263,7 +267,7 @@ export class Downloader {
     await fs.mkdir(this._rootPath, { recursive: true });
 
     return new Promise((res) => {
-      const writable = fs.createWriteStream(savePath);
+      const writable = createWriteStream(savePath);
       let firstChunk = Buffer.from([]);
 
       // Check first 24 bytes of the stream to validate file format.
@@ -284,8 +288,9 @@ export class Downloader {
           return md5.append(firstChunk);
         }
 
-        fs.unlink(savePath, () => res(DownloadStatus.WrongFileFormat));
+        res(DownloadStatus.WrongFileFormat);
 
+        fs.unlink(savePath);
         writable.close();
         readable.destroy();
       };
@@ -293,13 +298,18 @@ export class Downloader {
       readable.on('data', firstChunkListener);
 
       writable.once('error', () => {
-        fs.unlink(savePath, () => res(DownloadStatus.FailedToWrite));
+        res(DownloadStatus.FailedToWrite);
+        fs.unlink(savePath);
       });
 
       writable.once('finish', () => {
         writable.bytesWritten > 0
           ? res(DownloadStatus.Written)
-          : fs.unlink(savePath, () => res(DownloadStatus.EmptyFile));
+          : res(DownloadStatus.EmptyFile);
+
+        if (writable.bytesWritten <= 0) {
+          fs.unlink(savePath);
+        }
 
         writable.close();
         readable.destroy();
@@ -383,8 +393,8 @@ export class Downloader {
    * @returns Shared buffer generator.
    */
   private async *_generateChunks(filePath: string): AsyncGenerator<Buffer> {
-    const stats = fs.statSync(filePath);
-    const fd = fs.openSync(filePath, 'r');
+    const stats = await fs.stat(filePath);
+    const file = await fs.open(filePath, 'r');
 
     const chunkSize = 1024 * 1024; // 1 MB
     const totalChunks = Math.ceil(stats.size / chunkSize);
@@ -395,7 +405,7 @@ export class Downloader {
     let end = chunkSize;
 
     for (let i = 0; i < totalChunks; i++) {
-      await this.readBytes(fd, sharedBuffer);
+      await file.read(sharedBuffer, 0, sharedBuffer.length, null);
 
       bytesRead = (i + 1) * chunkSize;
 
@@ -405,21 +415,8 @@ export class Downloader {
 
       yield sharedBuffer.slice(0, end);
     }
-  }
 
-  /**
-   * Reads bytes from file to shared buffer. 
-   * This function is here, because fs.promises variant of file reading 
-   * doesn't actually work with async generators (???).
-   * @param fd File descriptor.
-   * @param sharedBuffer Shared buffer for less RAM usage.
-   */
-  readBytes(fd: number, sharedBuffer: Buffer): Promise<void> {
-    return new Promise((res, rej) => {
-      fs.read(fd, sharedBuffer, 0, sharedBuffer.length, null, (err) => {
-        return err ? rej(err) : res();
-      });
-    });
+    await file.close();
   }
 
   /**
@@ -472,7 +469,7 @@ export class Downloader {
     try {
       const buffer = Buffer.alloc(21);
 
-      const file = await fsPromise.open(savePath, 'r');
+      const file = await fs.open(savePath, 'r');
 
       try {
         // Read 21 bytes with possible 3 bytes of BOM.
