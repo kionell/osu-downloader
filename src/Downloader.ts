@@ -498,10 +498,7 @@ export class Downloader {
 
     if (chunk.length < 17) return false;
 
-    const hasBOM = chunk[0] === 239 && chunk[1] === 187 && chunk[2] === 191;
-    const offset = hasBOM ? 3 : 0;
-
-    const string = chunk.slice(offset, 17 + offset).toString();
+    const string = chunk.toString().trimStart();
 
     return string.startsWith('osu file format v');
   }
