@@ -297,12 +297,18 @@ export class Downloader {
 
       readable.on('data', firstChunkListener);
 
-      writable.once('error', () => {
+      const onWriteFail = () => {
         res(DownloadStatus.FailedToWrite);
         fs.unlink(savePath);
-      });
+      };
+
+      writable.once('error', onWriteFail);
 
       writable.once('finish', () => {
+        if (typeof entry.md5 === 'string' && entry.md5 !== md5.end()) {
+          onWriteFail();
+        }
+
         writable.bytesWritten > 0
           ? res(DownloadStatus.Written)
           : res(DownloadStatus.EmptyFile);

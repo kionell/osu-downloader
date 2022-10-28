@@ -39,6 +39,11 @@ export class DownloadEntry {
   save = true;
 
   /**
+   * MD5 hash of a file for validation.
+   */
+  md5?: string;
+
+  /**
    * Creates a new download entry.
    * @param options Download entry options.
    * @constructor
@@ -50,6 +55,7 @@ export class DownloadEntry {
     this.type = options?.type ?? this.type;
     this.redownload = options?.redownload ?? this.redownload;
     this.save = options?.save ?? this.save;
+    this.md5 = options?.md5 ?? this.md5;
   }
 
   get isArchive(): boolean {

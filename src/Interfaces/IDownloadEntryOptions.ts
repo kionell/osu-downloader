@@ -35,4 +35,10 @@ export interface IDownloadEntryOptions {
    * In that case all data will be stored in buffer of the download result.
    */
   save?: boolean;
+
+  /**
+   * MD5 hash for file validation.
+   * If wasn't specified then file validation will be omitted.
+   */
+  md5?: string;
 }
