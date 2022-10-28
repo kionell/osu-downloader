@@ -467,14 +467,19 @@ export class Downloader {
     if (!entry.save || entry.redownload) return false;
 
     try {
-      const buffer = Buffer.alloc(20);
-      const fsPromise = fs.promises;
+      const buffer = Buffer.alloc(21);
 
       const file = await fsPromise.open(savePath, 'r');
 
-      // Read 21 bytes with possible 3 bytes of BOM.
-      await file.read(buffer, 0, 20);
-      await file.close();
+      try {
+        // Read 21 bytes with possible 3 bytes of BOM.
+        await file.read(buffer, 0, 21);
+        await file.close();
+      }
+      catch {
+        // Nested try/catch block to close file descriptor.
+        await file.close();
+      }
 
       return this._validateFileFormat(buffer, entry.type);
     }
