@@ -34,35 +34,67 @@ export class Downloader {
   protected _queue: DownloadingQueue = new DownloadingQueue();
 
   /**
-   * A root path for saving files.
-   */
-  protected _rootPath: string | null = null;
-
-  /**
    * A rate limiter to prevent big amount of requests.
    */
   protected _limiter: Bottleneck;
 
-  /**
-   * The number of the current downloading file.
-   */
-  currentFile = 0;
-
-  /**
-   * Total amount of files at the start of downloading.
-   */
-  totalFiles = 0;
+  protected _rootPath: string | null = null;
+  protected _currentFile = 0;
+  protected _totalFiles = 0;
 
   /**
    * @param options Downloader options.
    * @constructor
    */
-  constructor({ rootPath, filesPerSecond, synchronous }: IDownloaderOptions) {
+  constructor(options?: IDownloaderOptions) {
+    this._limiter = new Bottleneck();
+
+    this.updateSettings(options);
+  }
+
+  /**
+   * Current downloader progress.
+   */
+  get progress(): number {
+    if (this.totalFiles === 0) return 0;
+
+    return this.currentFile / this.totalFiles;
+  }
+
+  /**
+   * The number of the current downloading file.
+   */
+  get currentFile(): number {
+    return this._currentFile;
+  }
+
+  /**
+   * Total amount of files at the start of downloading.
+   */
+  get totalFiles(): number {
+    return this._totalFiles;
+  }
+
+  /**
+   * A root path for saving files.
+   */
+  get rootPath(): string | null {
+    return this._rootPath;
+  }
+
+  updateSettings(options?: IDownloaderOptions): void {
+    const rootPath = options?.rootPath;
+    const filesPerSecond = options?.filesPerSecond;
+    const synchronous = options?.synchronous;
+
     if (typeof rootPath === 'string') {
       this._rootPath = path.normalize(rootPath);
     }
+    else if (rootPath === null) {
+      this._rootPath = null;
+    }
 
-    this._limiter = new Bottleneck({
+    this._limiter.updateSettings({
       reservoir: 60,
       reservoirRefreshAmount: 60,
       reservoirRefreshInterval: 60 * 1000,
@@ -72,19 +104,13 @@ export class Downloader {
     });
   }
 
-  get progress(): number {
-    if (this.totalFiles === 0) return 0;
-
-    return this.currentFile / this.totalFiles;
-  }
-
   /**
    * Cancels current downloader work.
    */
   reset(): void {
     this._queue.clear();
-    this.currentFile = 0;
-    this.totalFiles = 0;
+    this._currentFile = 0;
+    this._totalFiles = 0;
   }
 
   /**
@@ -100,7 +126,7 @@ export class Downloader {
 
     this._queue.enqueue(entry);
 
-    this.totalFiles = Math.max(this.totalFiles, this._queue.count);
+    this._totalFiles = Math.max(this._totalFiles, this._queue.count);
 
     return this._queue.count;
   }
@@ -352,7 +378,7 @@ export class Downloader {
    */
   private async _generateResult(options: IDownloadResultOptions): Promise<DownloadResult> {
     // Increment current file counter.
-    this.currentFile++;
+    this._currentFile++;
 
     try {
       options.md5 ??= await this._getMD5Hash(options);
