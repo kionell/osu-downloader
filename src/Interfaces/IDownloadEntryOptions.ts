@@ -21,11 +21,13 @@ export interface IDownloadEntryOptions {
 
   /**
    * Type of this file.
+   * @default DownloadType.Beatmap
    */
   type?: DownloadType;
 
   /**
    * Force file redownloading if it is already exists?
+   * @default false
    */
   redownload?: boolean;
 
@@ -33,6 +35,7 @@ export interface IDownloadEntryOptions {
    * Should file be saved on a disk or not?
    * If you need to download a file and not to save it, you can choose false.
    * In that case all data will be stored in buffer of the download result.
+   * @default true
    */
   save?: boolean;
 
