@@ -4,7 +4,6 @@
 export interface IDownloaderOptions {
   /**
    * A path for saving beatmaps.
-   * @default "./cache"
    */
   rootPath?: string;
 
