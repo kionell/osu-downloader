@@ -8,7 +8,7 @@ import { DownloadStatus } from '../Enums';
 export function formatDownloadStatus(status: DownloadStatus): string {
   switch (status) {
     case DownloadStatus.FailedToDownload:
-      return 'Not Found';
+      return 'Not Found/Failed To Download';
 
     case DownloadStatus.WrongFileFormat:
       return 'Wrong File Format';
