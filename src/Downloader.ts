@@ -38,7 +38,10 @@ export class Downloader {
    */
   protected _limiter: Bottleneck;
 
-  protected _rootPath: string | null = null;
+  protected _rootPath: string | null = './cache';
+  protected _filesPerSecond = 0;
+  protected _synchronous = true;
+
   protected _currentFile = 0;
   protected _totalFiles = 0;
 
@@ -49,7 +52,12 @@ export class Downloader {
   constructor(options?: IDownloaderOptions) {
     this._limiter = new Bottleneck();
 
-    this.updateSettings(options);
+    this.updateSettings({
+      rootPath: './cache',
+      filesPerSecond: 0,
+      synchronous: true,
+      ...options,
+    });
   }
 
   /**
@@ -94,14 +102,28 @@ export class Downloader {
       this._rootPath = null;
     }
 
-    this._limiter.updateSettings({
-      reservoir: 60,
-      reservoirRefreshAmount: 60,
-      reservoirRefreshInterval: 60 * 1000,
-      maxConcurrent: synchronous !== false ? 1 : null,
-      minTime: filesPerSecond
-        ? Math.max(0, 1000 / filesPerSecond) : 0,
-    });
+    if (typeof filesPerSecond === 'number') {
+      this._filesPerSecond = filesPerSecond;
+    }
+
+    if (typeof synchronous === 'boolean') {
+      this._synchronous = synchronous;
+    }
+
+    if (typeof filesPerSecond === 'number' || typeof synchronous === 'boolean') {
+      const files = Math.trunc(this._filesPerSecond);
+
+      // This interval should be multiple of 250 ms.
+      const multiplier = this._filesPerSecond ? this._filesPerSecond / files : 0;
+      const interval = Math.trunc(250000 * multiplier) / 250;
+
+      this._limiter.updateSettings({
+        reservoir: this._filesPerSecond ? files : null,
+        reservoirRefreshAmount: this._filesPerSecond ? files : null,
+        reservoirRefreshInterval: this._filesPerSecond ? interval : null,
+        maxConcurrent: this._synchronous ? 1 : null,
+      });
+    }
   }
 
   /**
@@ -281,7 +303,11 @@ export class Downloader {
    * @param md5 MD5 incremental algorithm.
    * @returns Status of downloading.
    */
-  private async _tryToSaveFile(readable: Readable, entry: DownloadEntry, md5: SparkMD5.ArrayBuffer): Promise<DownloadStatus> {
+  private async _tryToSaveFile(
+    readable: Readable,
+    entry: DownloadEntry,
+    md5: SparkMD5.ArrayBuffer,
+  ): Promise<DownloadStatus> {
     const savePath = this._getSavePath(entry);
     const fileType = entry.type;
 
